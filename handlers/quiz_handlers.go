@@ -32,7 +32,9 @@ func ListQuestions(conn *pgx.Conn) gin.HandlerFunc{
 
 func ListAnswers(conn *pgx.Conn) gin.HandlerFunc{
 	return func(c *gin.Context){
-		answers, err := repositories.GetQuizAnswers(c, conn);
+		question_id := c.Param("question_id")
+
+		answers, err := repositories.GetQuizAnswers(conn, question_id);
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()});
 			return;
@@ -75,5 +77,56 @@ func CheckAnswer(conn *pgx.Conn) gin.HandlerFunc{
 		c.JSON(http.StatusOK, gin.H{
 			"correct": correct,
 		})
+	}
+}
+
+func DeleteQuiz(conn *pgx.Conn) gin.HandlerFunc{
+	return func(c *gin.Context){
+
+		quizID := c.Param("quiz_id")
+
+		err := repositories.DeleteQuiz(conn, quizID)
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return;
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "deleted succesfully",
+		})
+	}
+}
+
+func CreateQuiz(conn *pgx.Conn) gin.HandlerFunc{
+	return func(c *gin.Context){
+
+		type RequestBody struct{
+			Name *string `json:"name"`
+			Description string `json:"description"`
+		}
+		var body RequestBody;
+
+		if err := c.ShouldBindJSON(&body); err != nil{
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid json",
+			})
+			return;
+		}
+		if body.Name == nil{
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "field 'name' is required",
+			})
+			return;
+		}
+
+		newQuiz, err := repositories.CreateQuiz(conn, *body.Name, body.Description);
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return;
+		}
+		c.JSON(http.StatusOK, newQuiz);
 	}
 }

@@ -1,9 +1,10 @@
 package entities
 
 type Quiz struct {
-	ID        int
-	Name      string
-	Questions []Question
+	ID          int
+	Name        string
+	Description string
+	Questions   []Question
 }
 
 type Question struct {

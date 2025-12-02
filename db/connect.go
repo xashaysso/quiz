@@ -18,7 +18,8 @@ func execSQL(ctx context.Context, conn *pgx.Conn, sql string){
 func CreateTables(ctx context.Context, conn *pgx.Conn) {
 	execSQL(ctx, conn, `CREATE TABLE IF NOT EXISTS quiz(
 		id SERIAL PRIMARY KEY,
-		name TEXT NOT NULL
+		name TEXT NOT NULL,
+		description TEXT
 	)`);
 
 	execSQL(ctx, conn, `CREATE TABLE IF NOT EXISTS questions(
