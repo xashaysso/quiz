@@ -52,3 +52,46 @@ func CreateQuiz(conn *pgx.Conn, quiz_name string, quiz_description string)(entit
 	return newQuiz, nil;
 }
 
+func UpdateQuiz(conn *pgx.Conn, quizID string, name *string, description *string)(entities.Quiz, error){
+	ctx := context.Background();
+
+	query := "UPDATE quiz SET ";
+	params := []interface{}{};
+	paramCounter := 1;
+
+	if name != nil{
+		if len(params) > 0 {
+            query += ", "
+        }
+		query += fmt.Sprintf("name = $%d", paramCounter);
+		params = append(params, *name);
+		paramCounter++;
+	}
+	if description != nil{
+		if len(params) > 0 {
+            query += ", "	
+        }
+		query += fmt.Sprintf("description = $%d", paramCounter);
+		params = append(params, *description);
+		paramCounter++;
+	}
+
+	if len(params) == 0{
+		return entities.Quiz{}, fmt.Errorf("no fields to update");
+	}
+
+	query += fmt.Sprintf(" WHERE id = $%d RETURNING id, name, description", paramCounter);
+	params = append(params, quizID);
+
+	var updatedQuiz entities.Quiz;
+	err := conn.QueryRow(ctx, query, params...).Scan(&updatedQuiz.ID, &updatedQuiz.Name, &updatedQuiz.Description);
+	if err == pgx.ErrNoRows{
+		return entities.Quiz{}, fmt.Errorf("quiz width id %s not found", quizID);
+	}
+	if err != nil{
+		return entities.Quiz{}, err;
+	}
+
+	return updatedQuiz, nil
+}
+

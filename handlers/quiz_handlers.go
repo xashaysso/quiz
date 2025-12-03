@@ -60,7 +60,7 @@ func CheckAnswer(conn *pgx.Conn) gin.HandlerFunc{
 
 		if body.AnswerID == nil{
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "field 'answer_id' is required",
+				"error": "field 'answer_id' is required in JSON body",
 			});
 			return;
 		}
@@ -115,7 +115,7 @@ func CreateQuiz(conn *pgx.Conn) gin.HandlerFunc{
 		}
 		if body.Name == nil{
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "field 'name' is required",
+				"error": "field 'name' is required in JSON body",
 			})
 			return;
 		}
@@ -127,6 +127,42 @@ func CreateQuiz(conn *pgx.Conn) gin.HandlerFunc{
 			})
 			return;
 		}
+		c.JSON(http.StatusOK, newQuiz);
+	}
+}
+
+func UpdateQuiz(conn *pgx.Conn) gin.HandlerFunc{
+	return func(c *gin.Context){
+		quizID := c.Param("quiz_id");
+
+		type RequestBody struct{
+			Name *string `json:"name"`
+			Description *string `json:"description"`
+		}
+
+		var body RequestBody;
+
+		if err := c.ShouldBindJSON(&body); err != nil{
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid json",
+			})
+			return;
+		}
+		if body.Name == nil && body.Description == nil{
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":"field 'name' and/or 'description' required in JSON body",
+			})
+			return;
+		}
+
+		newQuiz, err := repositories.UpdateQuiz(conn, quizID, body.Name, body.Description);
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return;
+		}
+
 		c.JSON(http.StatusOK, newQuiz);
 	}
 }

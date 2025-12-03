@@ -27,6 +27,7 @@ func main(){
 	{
 		quiz.GET("/", handlers.ListQuizzes(conn));
 		quiz.POST("/", handlers.CreateQuiz(conn));
+		quiz.PATCH("/:quiz_id", handlers.UpdateQuiz(conn));
 		quiz.DELETE("/:quiz_id", handlers.DeleteQuiz(conn))
 
 		quiz.GET("/:quiz_id", handlers.ListQuestions(conn));
