@@ -1,20 +1,19 @@
 package entities
 
-type Quiz struct {
-	ID          int
-	Name        string
-	Description string
-	Questions   []Question
+type QuizAPI struct {
+	Name        string        `json:"name"`
+	Description string        `json:"description"`
+	Questions   []QuestionAPI `json:"questions"`
 }
 
-type Question struct {
-	ID        int
-	Text      string
-	CorrectID int
-	Answers   []Answer
+type QuestionAPI struct {
+	ID        int         `json:"id"`
+	Text      string      `json:"text"`
+	CorrectID int         `json:"correct_id"`
+	Answers   []AnswerAPI `json:"answers"`
 }
 
-type Answer struct {
-	ID   int
-	Text string
+type AnswerAPI struct {
+	ID   int    `json:"id"`
+	Text string `json:"text"`
 }

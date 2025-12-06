@@ -95,3 +95,4 @@ func UpdateQuiz(conn *pgx.Conn, quizID string, name *string, description *string
 	return updatedQuiz, nil
 }
 
+

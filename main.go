@@ -31,6 +31,7 @@ func main(){
 		quiz.DELETE("/:quiz_id", handlers.DeleteQuiz(conn))
 
 		quiz.GET("/:quiz_id", handlers.ListQuestions(conn));
+		quiz.POST("/:quiz_id/questions", handlers.CreateQuestion(conn));
 	}
 
 	question := router.Group("/questions")

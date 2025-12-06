@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"context"
-	entities "quiz/entities/api"
+	entities "quiz/entities/db"
 
 	"github.com/jackc/pgx/v5"
 )
