@@ -31,25 +31,10 @@ func CreateTables(ctx context.Context, conn *pgx.Conn) {
 	execSQL(ctx, conn, `CREATE TABLE IF NOT EXISTS answers(
 		id SERIAL PRIMARY KEY,
 		text TEXT NOT NULL,
-		question_id INT NOT NULL REFERENCES questions(id) ON DELETE CASCADE
+		question_id INT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+		correct BOOLEAN DEFAULT false
 	)`);
 
-	execSQL(ctx, conn, `
-        DO $$ 
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM pg_attribute
-                WHERE attrelid = 'questions'::regclass
-                AND attname = 'correct_answer_id'
-            ) THEN
-                ALTER TABLE questions
-                ADD COLUMN correct_answer_id INT
-                REFERENCES answers(id)
-                DEFERRABLE INITIALLY DEFERRED;
-            END IF;
-        END
-        $$
-    `)
 	log.Println("All tables created succesfully.");
 }
 

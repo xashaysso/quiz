@@ -32,9 +32,7 @@ func CheckAnswer(conn *pgx.Conn, questionID string, answerID int) (bool, error) 
 
 	ctx := context.Background()
 
-	err := conn.QueryRow(ctx, `SELECT CASE WHEN correct_answer_id = $2 THEN true ELSE false END
-						FROM questions
-						WHERE id = $1`, questionID, answerID).Scan(&isCorrect)
+	err := conn.QueryRow(ctx, `SELECT correct FROM answers WHERE id = $1`, answerID).Scan(&isCorrect)
 	if err != nil {
 		return false, err
 	}

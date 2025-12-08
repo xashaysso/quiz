@@ -7,13 +7,13 @@ type QuizAPI struct {
 }
 
 type QuestionAPI struct {
-	ID        int         `json:"id"`
-	Text      string      `json:"text"`
-	CorrectID int         `json:"correct_id"`
-	Answers   []AnswerAPI `json:"answers"`
+	ID      int         `json:"id"`
+	Text    string      `json:"text"`
+	Answers []AnswerAPI `json:"answers"`
 }
 
 type AnswerAPI struct {
-	ID   int    `json:"id"`
-	Text string `json:"text"`
+	ID        int    `json:"id"`
+	Text      string `json:"text"`
+	IsCorrect bool   `json:"is_correct"`
 }

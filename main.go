@@ -30,12 +30,14 @@ func main(){
 		quiz.PATCH("/:quiz_id", handlers.UpdateQuiz(conn));
 		quiz.DELETE("/:quiz_id", handlers.DeleteQuiz(conn))
 
-		quiz.GET("/:quiz_id", handlers.ListQuestions(conn));
+		quiz.GET("/:quiz_id/questions", handlers.ListQuestions(conn));
 		quiz.POST("/:quiz_id/questions", handlers.CreateQuestion(conn));
 	}
 
 	question := router.Group("/questions")
 	{
+		question.GET("/:question_id", handlers.GetQuestion(conn));
+		question.PATCH("/:question_id", handlers.UpdateQuestion(conn));
 		question.GET("/:question_id/answers", handlers.ListAnswers(conn));
 		question.POST("/:question_id/check", handlers.CheckAnswer(conn));
 	}

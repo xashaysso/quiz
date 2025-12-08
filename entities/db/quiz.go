@@ -7,14 +7,14 @@ type Quiz struct {
 }
 
 type Question struct {
-	ID        int    `json:"id"`
-	Text      string `json:"text"`
-	QuizID    int    `json:"quiz_id"`
-	CorrectID int    `json:"correct_id"`
+	ID     int    `json:"id"`
+	Text   string `json:"text"`
+	QuizID int    `json:"quiz_id"`
 }
 
 type Answer struct {
 	ID         int    `json:"id"`
 	QuestionID int    `json:"question_id"`
 	Text       string `json:"text"`
+	IsCorrect  bool   `json:"is_correct"`
 }
