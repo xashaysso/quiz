@@ -106,3 +106,21 @@ func UpdateQuestion(conn *pgx.Conn) gin.HandlerFunc{
 		c.JSON(http.StatusOK, question);
 	}
 }
+
+func DeleteQuestion (conn *pgx.Conn) gin.HandlerFunc{
+	return func(c *gin.Context){
+		questionID := c.Param("question_id");
+
+		err := repositories.DeleteQuestion(conn, questionID);
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return;
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "deleted succesfully",
+		})
+	}
+}

@@ -38,11 +38,18 @@ func main(){
 	{
 		question.GET("/:question_id", handlers.GetQuestion(conn));
 		question.PATCH("/:question_id", handlers.UpdateQuestion(conn));
+		question.DELETE("/:question_id", handlers.DeleteQuestion(conn));
+
 		question.GET("/:question_id/answers", handlers.ListAnswers(conn));
+		question.POST("/:question_id/answers", handlers.CreateAnswer(conn));
+
 		question.POST("/:question_id/check", handlers.CheckAnswer(conn));
 	}
 
-	_, _ = quiz, question // ignore
+	answer := router.Group("/answers")
+	{
+		answer.GET("/:answer_id", handlers.GetAnswer(conn));
+	}
 
 	router.Run(PORT);
 }

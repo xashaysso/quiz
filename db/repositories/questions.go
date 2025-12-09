@@ -160,7 +160,7 @@ func UpdateQuestion(conn *pgx.Conn, questionID string, data dto.UpdateQuestionDT
 
 	defer tx.Rollback(ctx);
 
-		if data.Text != nil{
+	if data.Text != nil{
 		tag, err := conn.Exec(ctx, `UPDATE questions SET text = $1 WHERE id = $2`, *data.Text, questionID)
 		if err != nil{
 			return APIentities.QuestionAPI{}, err;
@@ -192,4 +192,17 @@ func UpdateQuestion(conn *pgx.Conn, questionID string, data dto.UpdateQuestionDT
 	}
 
 	return GetQuestion(conn, questionID);
+}
+
+func DeleteQuestion(conn *pgx.Conn, questionID string)(error){
+	ctx := context.Background();
+
+	cmdTag, err := conn.Exec(ctx, `DELETE FROM questions WHERE id = $1`, questionID);
+	if err != nil{
+		return err;
+	}
+	if cmdTag.RowsAffected() == 0{
+		return fmt.Errorf("question not found");
+	}
+	return nil;
 }

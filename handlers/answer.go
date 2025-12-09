@@ -3,6 +3,9 @@ package handlers
 import (
 	"net/http"
 	"quiz/db/repositories"
+	"quiz/entities/dto"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -56,5 +59,81 @@ func ListAnswers(conn *pgx.Conn) gin.HandlerFunc{
 			return;
 		}
 		c.JSON(http.StatusOK, answers);
+	}
+}
+
+func CreateAnswer(conn *pgx.Conn) gin.HandlerFunc{
+	return func(c *gin.Context){
+		questionID, err := strconv.Atoi(c.Param("question_id"));
+		if err != nil{
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid question_id format",
+			})
+			return;
+		}
+
+		var body dto.CreateAnswerDTO;
+
+		if err := c.ShouldBindJSON(&body); err != nil{
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid json format",
+			})
+			return;
+		}
+
+		if body.Text == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "field 'text' is required in json body",
+			})
+			return;
+		}
+
+		newAnswer, err := repositories.CreateAnswer(conn, questionID, body);
+		if err != nil{
+			errorMsg := err.Error();
+
+			if strings.Contains(errorMsg, "not found"){
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": errorMsg,
+				})
+				return;
+			}
+
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": errorMsg,
+			})
+			return;
+		}
+
+		c.JSON(http.StatusCreated, newAnswer);
+	}
+}
+
+func GetAnswer(conn *pgx.Conn) gin.HandlerFunc{
+	return func(c *gin.Context){
+		answerID, err := strconv.Atoi(c.Param("answer_id"));
+
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": err.Error(),
+			})
+			return;
+		}
+		if err != nil{
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid answer_id value",
+			})
+			return;
+		}
+
+		answer, err := repositories.GetAnswer(conn, answerID);
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return;
+		}
+
+		c.JSON(http.StatusOK, answer);
 	}
 }
