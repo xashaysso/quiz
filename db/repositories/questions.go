@@ -125,12 +125,12 @@ func GetQuestion(conn *pgx.Conn, questionID string)(APIentities.QuestionAPI, err
 	var question APIentities.QuestionAPI;
 	questionAnswers := []APIentities.AnswerAPI{};
 
-	err := conn.QueryRow(ctx, `SELECT id, text FROM questions WHERE id = $1`, questionID).Scan(&question.ID, &question.Text);
+	err := conn.QueryRow(ctx, `SELECT id, text FROM questions WHERE id = $1 ORDER BY id`, questionID).Scan(&question.ID, &question.Text);
 	if err != nil{
 		return APIentities.QuestionAPI{}, err;
 	}
 
-	rows, err := conn.Query(ctx, `SELECT id, text, correct FROM answers WHERE question_id = $1`, questionID);
+	rows, err := conn.Query(ctx, `SELECT id, text, correct FROM answers WHERE question_id = $1 ORDER BY id`, questionID);
 	if err != nil{
 		return APIentities.QuestionAPI{}, nil;
 	}

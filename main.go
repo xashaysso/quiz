@@ -49,6 +49,8 @@ func main(){
 	answer := router.Group("/answers")
 	{
 		answer.GET("/:answer_id", handlers.GetAnswer(conn));
+		answer.PATCH("/:answer_id", handlers.UpdateAnswer(conn));
+		answer.DELETE("/:answer_id", handlers.DeleteAnswer(conn));
 	}
 
 	router.Run(PORT);

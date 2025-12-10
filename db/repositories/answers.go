@@ -81,7 +81,7 @@ func GetAnswer(conn *pgx.Conn, answerID int)(APIentities.AnswerAPI, error){
 	ctx := context.Background();
 
 	var answer APIentities.AnswerAPI;
-	err := conn.QueryRow(ctx, `SELECT id, text, correct FROM answers WHERE id = $1`, answerID).Scan(&answer.ID, &answer.Text, &answer.IsCorrect);
+	err := conn.QueryRow(ctx, `SELECT id, text, correct FROM answers WHERE id = $1 ORDER BY id`, answerID).Scan(&answer.ID, &answer.Text, &answer.IsCorrect);
 	
 	if err == pgx.ErrNoRows {
 		return APIentities.AnswerAPI{}, fmt.Errorf("answer with id %d not found", answerID);
@@ -91,4 +91,68 @@ func GetAnswer(conn *pgx.Conn, answerID int)(APIentities.AnswerAPI, error){
 	}
 
 	return answer, nil;
+}
+
+func DeleteAnswer(conn *pgx.Conn, answerID int)(error){
+	ctx := context.Background();
+
+	cmdTag, err := conn.Exec(ctx, `DELETE FROM answers WHERE id = $1`, answerID);
+	if err != nil{
+		return err;
+	}
+	if cmdTag.RowsAffected() == 0{
+		return fmt.Errorf("no answer with id %d found", answerID);
+	}
+
+	return nil;
+}
+
+func UpdateAnswer(conn *pgx.Conn, answerID int, data dto.UpdateAnswerDTO)(APIentities.AnswerAPI, error){
+	ctx := context.Background();
+
+	tx, err := conn.Begin(ctx);
+	if err != nil{
+		return APIentities.AnswerAPI{}, err;
+	}
+	defer tx.Rollback(ctx);
+
+	var questionID int;
+	err = tx.QueryRow(ctx, `SELECT question_id FROM answers WHERE id = $1`, answerID).Scan(&questionID);
+	if err == pgx.ErrNoRows{
+		return APIentities.AnswerAPI{}, fmt.Errorf("answer with id %d not found", answerID);
+	}
+	if err != nil{
+		return APIentities.AnswerAPI{}, err;
+	}
+
+	if data.Text != nil{
+		tag, err := tx.Exec(ctx, `UPDATE answers SET text = $1 WHERE id = $2`, *data.Text, answerID);
+		if err != nil{
+			return APIentities.AnswerAPI{}, err;
+		}
+		if tag.RowsAffected() == 0{
+			return APIentities.AnswerAPI{}, fmt.Errorf("answer with id %d not found", answerID);
+		}
+	}
+
+	if data.NewCorrectID != nil {
+		_, err := tx.Exec(ctx, `UPDATE answers SET correct = FALSE WHERE question_id = $1`, questionID);
+		if err != nil{
+			return APIentities.AnswerAPI{}, fmt.Errorf("failed to reset correct flag: %w", err);
+		}
+
+		tag, err := tx.Exec(ctx, `UPDATE answers SET correct = TRUE WHERE id = $1 AND question_id = $2`, *data.NewCorrectID, questionID);
+		if err != nil{
+			return APIentities.AnswerAPI{}, fmt.Errorf("failed to set new correct flag: %w", err);
+		}
+		if tag.RowsAffected() == 0{
+			return APIentities.AnswerAPI{}, fmt.Errorf("new correct answer id %d belongs to another question", *data.NewCorrectID);
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil{
+		return APIentities.AnswerAPI{}, err;
+	}
+
+	return GetAnswer(conn, answerID);
 }

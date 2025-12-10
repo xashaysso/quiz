@@ -119,8 +119,6 @@ func DeleteQuestion (conn *pgx.Conn) gin.HandlerFunc{
 			return;
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"message": "deleted succesfully",
-		})
+		c.Status(http.StatusNoContent);
 	}
 }
