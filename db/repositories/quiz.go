@@ -6,13 +6,24 @@ import (
 	entities "quiz/entities/db"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func GetQuiz(conn *pgx.Conn)([]entities.Quiz, error){
-	ctx := context.Background();
+// create db pool
 
+type PgQuizRepo struct {
+	Pool *pgxpool.Pool
+}
+
+func NewQuizRepo (p *pgxpool.Pool) *PgQuizRepo{
+	return &PgQuizRepo{Pool: p}
+}
+
+// repo methods
+
+func (r *PgQuizRepo) GetQuiz(ctx context.Context)([]entities.Quiz, error){
 	var quizList []entities.Quiz;
-	rows, err := conn.Query(ctx, `SELECT id, name, description FROM quiz`)
+	rows, err := r.Pool.Query(ctx, `SELECT id, name, description FROM quiz`)
 	if rows.Err() != nil {
 		return nil, err;
 	}
@@ -27,10 +38,8 @@ func GetQuiz(conn *pgx.Conn)([]entities.Quiz, error){
 	return quizList, nil;
 }
 
-func DeleteQuiz(conn *pgx.Conn, quizID string)(error){
-	ctx := context.Background();
-
-	cmdTag, err := conn.Exec(ctx, `DELETE FROM quiz WHERE id = $1`, quizID);
+func (r *PgQuizRepo) DeleteQuiz(ctx context.Context, quizID string)(error){
+	cmdTag, err := r.Pool.Exec(ctx, `DELETE FROM quiz WHERE id = $1`, quizID);
 	if err != nil{
 		return err;
 	}
@@ -41,20 +50,17 @@ func DeleteQuiz(conn *pgx.Conn, quizID string)(error){
 	return nil;
 }
 
-func CreateQuiz(conn *pgx.Conn, quiz_name string, quiz_description string)(entities.Quiz, error){
-	ctx := context.Background();
+func (r *PgQuizRepo) CreateQuiz(ctx context.Context, quiz_name string, quiz_description string)(entities.Quiz, error){
 	var newQuiz entities.Quiz;
 
-	err := conn.QueryRow(ctx, `INSERT INTO quiz (name, description) VALUES ($1, $2) RETURNING id, name, description`, quiz_name, quiz_description).Scan(&newQuiz.ID, &newQuiz.Name, &newQuiz.Description);
+	err := r.Pool.QueryRow(ctx, `INSERT INTO quiz (name, description) VALUES ($1, $2) RETURNING id, name, description`, quiz_name, quiz_description).Scan(&newQuiz.ID, &newQuiz.Name, &newQuiz.Description);
 	if err != nil{
 		return entities.Quiz{}, err;
 	}
 	return newQuiz, nil;
 }
 
-func UpdateQuiz(conn *pgx.Conn, quizID string, name *string, description *string)(entities.Quiz, error){
-	ctx := context.Background();
-
+func (r *PgQuizRepo) UpdateQuiz(ctx context.Context, quizID string, name *string, description *string)(entities.Quiz, error){
 	query := "UPDATE quiz SET ";
 	params := []interface{}{};
 	paramCounter := 1;
@@ -84,7 +90,7 @@ func UpdateQuiz(conn *pgx.Conn, quizID string, name *string, description *string
 	params = append(params, quizID);
 
 	var updatedQuiz entities.Quiz;
-	err := conn.QueryRow(ctx, query, params...).Scan(&updatedQuiz.ID, &updatedQuiz.Name, &updatedQuiz.Description);
+	err := r.Pool.QueryRow(ctx, query, params...).Scan(&updatedQuiz.ID, &updatedQuiz.Name, &updatedQuiz.Description);
 	if err == pgx.ErrNoRows{
 		return entities.Quiz{}, fmt.Errorf("quiz width id %s not found", quizID);
 	}

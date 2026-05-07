@@ -9,3 +9,7 @@ type UpdateAnswerDTO struct {
 	Text         *string `json:"text"`
 	NewCorrectID *int    `json:"correct_id"`
 }
+
+type CheckAnswerDTO struct {
+	AnswerID *int `json:"answer_id"`
+}

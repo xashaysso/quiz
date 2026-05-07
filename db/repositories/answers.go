@@ -9,17 +9,28 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func GetQuizAnswers(conn *pgx.Conn, question_id string) ([]entities.Answer, error) {
-	ctx := context.Background()
+// create db pool
 
+type PgAnswerRepo struct {
+	Pool *pgxpool.Pool
+}
+
+func NewAnswerRepo (p *pgxpool.Pool) *PgAnswerRepo{
+	return &PgAnswerRepo{Pool: p}
+}
+
+// repo methods
+
+func (r *PgAnswerRepo) GetQuizAnswers(ctx context.Context, question_id string) ([]entities.Answer, error) {
 	var answerList []entities.Answer
-	rows, err := conn.Query(ctx, `SELECT id, text FROM answers WHERE question_id = $1`, question_id)
+	rows, err := r.Pool.Query(ctx, `SELECT id, text FROM answers WHERE question_id = $1`, question_id)
 	if rows.Err() != nil {
 		return nil, err
 	}
-
+	defer rows.Close()
 	for rows.Next() {
 		var answer entities.Answer
 		err := rows.Scan(&answer.ID, &answer.Text)
@@ -31,24 +42,20 @@ func GetQuizAnswers(conn *pgx.Conn, question_id string) ([]entities.Answer, erro
 	return answerList, nil
 }
 
-func CheckAnswer(conn *pgx.Conn, questionID string, answerID int) (bool, error) {
+func (r *PgAnswerRepo) CheckAnswer(ctx context.Context, questionID string, answerID int) (bool, error) {
 	var isCorrect bool
 
-	ctx := context.Background()
-
-	err := conn.QueryRow(ctx, `SELECT correct FROM answers WHERE id = $1`, answerID).Scan(&isCorrect)
+	err := r.Pool.QueryRow(ctx, `SELECT correct FROM answers WHERE id = $1`, answerID).Scan(&isCorrect)
 	if err != nil {
 		return false, err
 	}
 	return isCorrect, nil
 }
 
-func CreateAnswer(conn *pgx.Conn, questionID int, data dto.CreateAnswerDTO)(APIentities.AnswerAPI, error){
-	ctx := context.Background();
-
+func (r *PgAnswerRepo) CreateAnswer(ctx context.Context, questionID int, data dto.CreateAnswerDTO)(APIentities.AnswerAPI, error){
 	var newAnswer APIentities.AnswerAPI;
 
-	tx, err := conn.Begin(ctx);
+	tx, err := r.Pool.Begin(ctx);
 	if err != nil{
 		return APIentities.AnswerAPI{}, err;
 	}
@@ -77,11 +84,9 @@ func CreateAnswer(conn *pgx.Conn, questionID int, data dto.CreateAnswerDTO)(APIe
 	return newAnswer, nil
 }
 
-func GetAnswer(conn *pgx.Conn, answerID int)(APIentities.AnswerAPI, error){
-	ctx := context.Background();
-
+func (r *PgAnswerRepo) GetAnswer(ctx context.Context, answerID int)(APIentities.AnswerAPI, error){
 	var answer APIentities.AnswerAPI;
-	err := conn.QueryRow(ctx, `SELECT id, text, correct FROM answers WHERE id = $1 ORDER BY id`, answerID).Scan(&answer.ID, &answer.Text, &answer.IsCorrect);
+	err := r.Pool.QueryRow(ctx, `SELECT id, text, correct FROM answers WHERE id = $1 ORDER BY id`, answerID).Scan(&answer.ID, &answer.Text, &answer.IsCorrect);
 	
 	if err == pgx.ErrNoRows {
 		return APIentities.AnswerAPI{}, fmt.Errorf("answer with id %d not found", answerID);
@@ -93,10 +98,8 @@ func GetAnswer(conn *pgx.Conn, answerID int)(APIentities.AnswerAPI, error){
 	return answer, nil;
 }
 
-func DeleteAnswer(conn *pgx.Conn, answerID int)(error){
-	ctx := context.Background();
-
-	cmdTag, err := conn.Exec(ctx, `DELETE FROM answers WHERE id = $1`, answerID);
+func (r *PgAnswerRepo) DeleteAnswer(ctx context.Context, answerID int)(error){
+	cmdTag, err := r.Pool.Exec(ctx, `DELETE FROM answers WHERE id = $1`, answerID);
 	if err != nil{
 		return err;
 	}
@@ -107,10 +110,8 @@ func DeleteAnswer(conn *pgx.Conn, answerID int)(error){
 	return nil;
 }
 
-func UpdateAnswer(conn *pgx.Conn, answerID int, data dto.UpdateAnswerDTO)(APIentities.AnswerAPI, error){
-	ctx := context.Background();
-
-	tx, err := conn.Begin(ctx);
+func (r *PgAnswerRepo) UpdateAnswer(ctx context.Context, answerID int, data dto.UpdateAnswerDTO)(APIentities.AnswerAPI, error){
+	tx, err := r.Pool.Begin(ctx);
 	if err != nil{
 		return APIentities.AnswerAPI{}, err;
 	}
@@ -154,5 +155,5 @@ func UpdateAnswer(conn *pgx.Conn, answerID int, data dto.UpdateAnswerDTO)(APIent
 		return APIentities.AnswerAPI{}, err;
 	}
 
-	return GetAnswer(conn, answerID);
+	return r.GetAnswer(ctx, answerID);
 }

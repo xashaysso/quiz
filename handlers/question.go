@@ -7,11 +7,14 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
 )
 
-func CreateQuestion(conn *pgx.Conn) gin.HandlerFunc {
-	return func(c *gin.Context) {
+type QuestionHandler struct {
+	Repo *repositories.PgQuestionRepo
+}
+
+func (h *QuestionHandler) CreateQuestion(c *gin.Context) {
+		ctx := c.Request.Context()
 		quizID := c.Param("quiz_id")
 
 		var body dto.CreateQuestionDTO
@@ -38,7 +41,7 @@ func CreateQuestion(conn *pgx.Conn) gin.HandlerFunc {
 			return
 		}
 
-		newQuestion, err := repositories.CreateQuestion(conn, qID, body)
+		newQuestion, err := h.Repo.CreateQuestion(ctx, qID, body)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
@@ -48,24 +51,23 @@ func CreateQuestion(conn *pgx.Conn) gin.HandlerFunc {
 
 		c.JSON(http.StatusCreated, newQuestion)
 	}
-}
 
-func ListQuestions(conn *pgx.Conn) gin.HandlerFunc{
-	return func (c *gin.Context){
-		questions, err := repositories.GetQuizQuestions(c, conn);
+func (h *QuestionHandler) ListQuestions(c *gin.Context){
+		ctx := c.Request.Context()
+		id := c.Param("quiz_id")
+		questions, err := h.Repo.GetQuizQuestions(ctx, id);
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()});
 			return;
 		}
 		c.JSON(http.StatusOK, questions);
 	}
-}
 
-func GetQuestion(conn *pgx.Conn) gin.HandlerFunc{
-	return func(c *gin.Context){
+func (h *QuestionHandler) GetQuestion(c *gin.Context){
+		ctx := c.Request.Context()
 		questionID := c.Param("question_id");
 
-		question, err := repositories.GetQuestion(conn, questionID);
+		question, err := h.Repo.GetQuestion(ctx, questionID);
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
@@ -74,10 +76,9 @@ func GetQuestion(conn *pgx.Conn) gin.HandlerFunc{
 		}
 		c.JSON(http.StatusOK, question);
 	}
-}
 
-func UpdateQuestion(conn *pgx.Conn) gin.HandlerFunc{
-	return func(c *gin.Context){
+func (h *QuestionHandler) UpdateQuestion(c *gin.Context){
+		ctx := c.Request.Context()
 		questionID := c.Param("question_id");
 
 		var body dto.UpdateQuestionDTO;
@@ -95,7 +96,7 @@ func UpdateQuestion(conn *pgx.Conn) gin.HandlerFunc{
 			return;
 		}
 
-		question, err := repositories.UpdateQuestion(conn, questionID, body);
+		question, err := h.Repo.UpdateQuestion(ctx, questionID, body);
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
@@ -105,13 +106,12 @@ func UpdateQuestion(conn *pgx.Conn) gin.HandlerFunc{
 
 		c.JSON(http.StatusOK, question);
 	}
-}
 
-func DeleteQuestion (conn *pgx.Conn) gin.HandlerFunc{
-	return func(c *gin.Context){
+func (h *QuestionHandler) DeleteQuestion(c *gin.Context){
+		ctx := c.Request.Context()
 		questionID := c.Param("question_id");
 
-		err := repositories.DeleteQuestion(conn, questionID);
+		err := h.Repo.DeleteQuestion(ctx, questionID);
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
@@ -121,4 +121,3 @@ func DeleteQuestion (conn *pgx.Conn) gin.HandlerFunc{
 
 		c.Status(http.StatusNoContent);
 	}
-}

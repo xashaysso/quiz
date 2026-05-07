@@ -6,20 +6,29 @@ import (
 	APIentities "quiz/entities/api"
 	"quiz/entities/dto"
 
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func GetQuizQuestions(c *gin.Context, conn *pgx.Conn) ([]APIentities.QuestionAPI, error) {
-	ctx := context.Background()
-	id := c.Param("quiz_id")
+// create db pool
 
-	rows, err := conn.Query(ctx, `SELECT q.id AS question_id, q.text AS question_text, a.id AS answer_id, a.text AS answer_id, a.correct
+type PgQuestionRepo struct {
+	Pool *pgxpool.Pool
+}
+
+func NewQuestionRepo (p *pgxpool.Pool) *PgQuestionRepo{
+	return &PgQuestionRepo{Pool: p}
+}
+
+// repo methods
+
+func (r *PgQuestionRepo) GetQuizQuestions(ctx context.Context, id string) ([]APIentities.QuestionAPI, error) {
+	rows, err := r.Pool.Query(ctx, `SELECT q.id AS question_id, q.text AS question_text, a.id AS answer_id, a.text AS answer_id, a.correct
 								FROM questions q JOIN answers a	ON q.id = a.question_id WHERE q.quiz_id = $1 ORDER BY q.id, a.id`, id)
 	if rows.Err() != nil {
 		return nil, err
 	}
+	defer rows.Close();
 
 	var questionMap = make(map[int]APIentities.QuestionAPI);
 	var orderedQuestionIDs []int;
@@ -34,7 +43,6 @@ func GetQuizQuestions(c *gin.Context, conn *pgx.Conn) ([]APIentities.QuestionAPI
 		if err != nil {
 			return nil, err
 		}
-		defer rows.Close();
 
 		question, exists := questionMap[qID];
 		if !exists{
@@ -65,10 +73,8 @@ func GetQuizQuestions(c *gin.Context, conn *pgx.Conn) ([]APIentities.QuestionAPI
 }
 
 
-func CreateQuestion(conn *pgx.Conn, quizID int, data dto.CreateQuestionDTO)(APIentities.QuestionAPI, error){
-	ctx := context.Background();
-
-	tx, err := conn.Begin(ctx);
+func (r *PgQuestionRepo) CreateQuestion(ctx context.Context, quizID int, data dto.CreateQuestionDTO)(APIentities.QuestionAPI, error){
+	tx, err := r.Pool.Begin(ctx);
 	if err != nil{
 		return APIentities.QuestionAPI{}, err;
 	}
@@ -119,18 +125,16 @@ func CreateQuestion(conn *pgx.Conn, quizID int, data dto.CreateQuestionDTO)(APIe
 	return resData, nil;
 }
 
-func GetQuestion(conn *pgx.Conn, questionID string)(APIentities.QuestionAPI, error){
-	ctx := context.Background();
-
+func (r *PgQuestionRepo) GetQuestion(ctx context.Context, questionID string)(APIentities.QuestionAPI, error){
 	var question APIentities.QuestionAPI;
 	questionAnswers := []APIentities.AnswerAPI{};
 
-	err := conn.QueryRow(ctx, `SELECT id, text FROM questions WHERE id = $1 ORDER BY id`, questionID).Scan(&question.ID, &question.Text);
+	err := r.Pool.QueryRow(ctx, `SELECT id, text FROM questions WHERE id = $1 ORDER BY id`, questionID).Scan(&question.ID, &question.Text);
 	if err != nil{
 		return APIentities.QuestionAPI{}, err;
 	}
 
-	rows, err := conn.Query(ctx, `SELECT id, text, correct FROM answers WHERE question_id = $1 ORDER BY id`, questionID);
+	rows, err := r.Pool.Query(ctx, `SELECT id, text, correct FROM answers WHERE question_id = $1 ORDER BY id`, questionID);
 	if err != nil{
 		return APIentities.QuestionAPI{}, nil;
 	}
@@ -150,10 +154,8 @@ func GetQuestion(conn *pgx.Conn, questionID string)(APIentities.QuestionAPI, err
 	return question, nil;
 }
 
-func UpdateQuestion(conn *pgx.Conn, questionID string, data dto.UpdateQuestionDTO)(APIentities.QuestionAPI, error){
-	ctx := context.Background();
-
-	tx, err := conn.Begin(ctx);
+func (r *PgQuestionRepo) UpdateQuestion(ctx context.Context, questionID string, data dto.UpdateQuestionDTO)(APIentities.QuestionAPI, error){
+	tx, err := r.Pool.Begin(ctx);
 	if err != nil{
 		return APIentities.QuestionAPI{}, err;
 	}
@@ -161,7 +163,7 @@ func UpdateQuestion(conn *pgx.Conn, questionID string, data dto.UpdateQuestionDT
 	defer tx.Rollback(ctx);
 
 	if data.Text != nil{
-		tag, err := conn.Exec(ctx, `UPDATE questions SET text = $1 WHERE id = $2`, *data.Text, questionID)
+		tag, err := r.Pool.Exec(ctx, `UPDATE questions SET text = $1 WHERE id = $2`, *data.Text, questionID)
 		if err != nil{
 			return APIentities.QuestionAPI{}, err;
 		}
@@ -191,13 +193,11 @@ func UpdateQuestion(conn *pgx.Conn, questionID string, data dto.UpdateQuestionDT
 		return APIentities.QuestionAPI{}, err;
 	}
 
-	return GetQuestion(conn, questionID);
+	return r.GetQuestion(ctx, questionID);
 }
 
-func DeleteQuestion(conn *pgx.Conn, questionID string)(error){
-	ctx := context.Background();
-
-	cmdTag, err := conn.Exec(ctx, `DELETE FROM questions WHERE id = $1`, questionID);
+func (r *PgQuestionRepo) DeleteQuestion(ctx context.Context, questionID string)(error){
+	cmdTag, err := r.Pool.Exec(ctx, `DELETE FROM questions WHERE id = $1`, questionID);
 	if err != nil{
 		return err;
 	}

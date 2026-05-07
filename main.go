@@ -1,57 +1,71 @@
 package main
 
 import (
-	"context"
 	"log"
 	"os"
+
 	"quiz/db"
+	"quiz/db/repositories"
 	"quiz/handlers"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
-func main(){
-	router := gin.Default();
+func main() {
+	router := gin.Default()
 
 	err := godotenv.Load()
-	if err != nil{
-		log.Println("No .env file found");
+	if err != nil {
+		log.Println("No .env file found")
 	}
-	PORT := os.Getenv("PORT");
+	PORT := os.Getenv("PORT")
 
-	conn := db.Serve();
-	defer conn.Close(context.Background());
+	globalPool := db.Serve()
+	defer globalPool.Close()
+
+	quizRepo := repositories.NewQuizRepo(globalPool)
+	questionRepo := repositories.NewQuestionRepo(globalPool)
+	answerRepo := repositories.NewAnswerRepo(globalPool)
+
+	quizH := &handlers.QuizHandler{Repo: quizRepo}
+	questionH := &handlers.QuestionHandler{Repo: questionRepo}
+	answerH := &handlers.AnswerHandler{Repo: answerRepo}
 
 	quiz := router.Group("/quizzes")
 	{
-		quiz.GET("/", handlers.ListQuizzes(conn));
-		quiz.POST("/", handlers.CreateQuiz(conn));
-		quiz.PATCH("/:quiz_id", handlers.UpdateQuiz(conn));
-		quiz.DELETE("/:quiz_id", handlers.DeleteQuiz(conn))
+		// quiz handlers
+		quiz.GET("/", quizH.ListQuizzes)
+		quiz.POST("/", quizH.CreateQuiz)
+		quiz.PATCH("/:quiz_id", quizH.UpdateQuiz)
+		quiz.DELETE("/:quiz_id", quizH.DeleteQuiz)
 
-		quiz.GET("/:quiz_id/questions", handlers.ListQuestions(conn));
-		quiz.POST("/:quiz_id/questions", handlers.CreateQuestion(conn));
+		// question handlers
+		quiz.GET("/:quiz_id/questions", questionH.ListQuestions)
+		quiz.POST("/:quiz_id/questions", questionH.CreateQuestion)
 	}
 
 	question := router.Group("/questions")
 	{
-		question.GET("/:question_id", handlers.GetQuestion(conn));
-		question.PATCH("/:question_id", handlers.UpdateQuestion(conn));
-		question.DELETE("/:question_id", handlers.DeleteQuestion(conn));
+		// question handlers
+		question.GET("/:question_id", questionH.GetQuestion)
+		question.PATCH("/:question_id", questionH.UpdateQuestion)
+		question.DELETE("/:question_id", questionH.DeleteQuestion)
 
-		question.GET("/:question_id/answers", handlers.ListAnswers(conn));
-		question.POST("/:question_id/answers", handlers.CreateAnswer(conn));
+		// answer handlers
+		question.GET("/:question_id/answers", answerH.ListAnswers)
+		question.POST("/:question_id/answers", answerH.CreateAnswer)
 
-		question.POST("/:question_id/check", handlers.CheckAnswer(conn));
+		question.POST("/:question_id/check", answerH.CheckAnswer)
 	}
 
 	answer := router.Group("/answers")
 	{
-		answer.GET("/:answer_id", handlers.GetAnswer(conn));
-		answer.PATCH("/:answer_id", handlers.UpdateAnswer(conn));
-		answer.DELETE("/:answer_id", handlers.DeleteAnswer(conn));
+		answer.GET("/:answer_id", answerH.GetAnswer)
+		answer.PATCH("/:answer_id", answerH.UpdateAnswer)
+		answer.DELETE("/:answer_id", answerH.DeleteAnswer)
 	}
 
-	router.Run(PORT);
+	router.Run(PORT)
 }
+

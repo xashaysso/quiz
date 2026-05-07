@@ -11,14 +11,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func CheckAnswer(conn *pgx.Conn) gin.HandlerFunc {
-	return func(c *gin.Context) {
+type AnswerHandler struct {
+	Repo *repositories.PgAnswerRepo
+}
 
-		type RequestBody struct {
-			AnswerID *int `json:"answer_id"`
-		}
+func (h *AnswerHandler) CheckAnswer(c *gin.Context) {
+		ctx := c.Request.Context()
 
-		var body RequestBody
+		var body dto.CheckAnswerDTO;
 		if err := c.ShouldBindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "invalid json",
@@ -35,7 +35,7 @@ func CheckAnswer(conn *pgx.Conn) gin.HandlerFunc {
 
 		questionID := c.Param("question_id")
 
-		correct, err := repositories.CheckAnswer(conn, questionID, *body.AnswerID)
+		correct, err := h.Repo.CheckAnswer(ctx, questionID, *body.AnswerID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
@@ -46,24 +46,22 @@ func CheckAnswer(conn *pgx.Conn) gin.HandlerFunc {
 			"correct": correct,
 		})
 	}
-}
 
 
-func ListAnswers(conn *pgx.Conn) gin.HandlerFunc{
-	return func(c *gin.Context){
+func (h *AnswerHandler) ListAnswers(c *gin.Context){
+		ctx := c.Request.Context()
 		question_id := c.Param("question_id")
 
-		answers, err := repositories.GetQuizAnswers(conn, question_id);
+		answers, err := h.Repo.GetQuizAnswers(ctx, question_id);
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()});
 			return;
 		}
 		c.JSON(http.StatusOK, answers);
 	}
-}
 
-func CreateAnswer(conn *pgx.Conn) gin.HandlerFunc{
-	return func(c *gin.Context){
+func (h *AnswerHandler) CreateAnswer(c *gin.Context){
+		ctx := c.Request.Context()
 		questionID, err := strconv.Atoi(c.Param("question_id"));
 		if err != nil{
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -88,7 +86,7 @@ func CreateAnswer(conn *pgx.Conn) gin.HandlerFunc{
 			return;
 		}
 
-		newAnswer, err := repositories.CreateAnswer(conn, questionID, body);
+		newAnswer, err := h.Repo.CreateAnswer(ctx, questionID, body);
 		if err != nil{
 			errorMsg := err.Error();
 
@@ -107,10 +105,9 @@ func CreateAnswer(conn *pgx.Conn) gin.HandlerFunc{
 
 		c.JSON(http.StatusCreated, newAnswer);
 	}
-}
 
-func GetAnswer(conn *pgx.Conn) gin.HandlerFunc{
-	return func(c *gin.Context){
+func (h *AnswerHandler) GetAnswer(c *gin.Context){
+		ctx := c.Request.Context()
 		answerID, err := strconv.Atoi(c.Param("answer_id"));
 
 		if err != nil{
@@ -120,7 +117,7 @@ func GetAnswer(conn *pgx.Conn) gin.HandlerFunc{
 			return;
 		}
 
-		answer, err := repositories.GetAnswer(conn, answerID);
+		answer, err := h.Repo.GetAnswer(ctx, answerID);
 		
 		if err == pgx.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -137,10 +134,9 @@ func GetAnswer(conn *pgx.Conn) gin.HandlerFunc{
 
 		c.JSON(http.StatusOK, answer);
 	}
-}
 
-func DeleteAnswer(conn *pgx.Conn) gin.HandlerFunc{
-	return func(c *gin.Context){
+func (h *AnswerHandler) DeleteAnswer(c *gin.Context){
+		ctx := c.Request.Context()
 		answerID, err := strconv.Atoi(c.Param("answer_id"));
 		if err != nil{
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -149,7 +145,7 @@ func DeleteAnswer(conn *pgx.Conn) gin.HandlerFunc{
 			return;
 		}
 
-		err = repositories.DeleteAnswer(conn, answerID);
+		err = h.Repo.DeleteAnswer(ctx, answerID);
 		if err == pgx.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": err.Error(),
@@ -165,10 +161,9 @@ func DeleteAnswer(conn *pgx.Conn) gin.HandlerFunc{
 
 		c.Status(http.StatusNoContent);
 	}
-}
 
-func UpdateAnswer(conn *pgx.Conn) gin.HandlerFunc{
-	return func(c *gin.Context){
+func (h *AnswerHandler) UpdateAnswer(c *gin.Context){
+		ctx := c.Request.Context()
 		answerID, err := strconv.Atoi(c.Param("answer_id"));
 		if err != nil{
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -193,7 +188,7 @@ func UpdateAnswer(conn *pgx.Conn) gin.HandlerFunc{
 			return;
 		}
 
-		updatedAnswer, err := repositories.UpdateAnswer(conn, answerID, body);
+		updatedAnswer, err := h.Repo.UpdateAnswer(ctx, answerID, body);
 		if err != nil{
 			errMsg := err.Error();
 			if strings.Contains(errMsg, "not found"){
@@ -217,4 +212,3 @@ func UpdateAnswer(conn *pgx.Conn) gin.HandlerFunc{
 
 		c.JSON(http.StatusOK, updatedAnswer);
 	}
-}
