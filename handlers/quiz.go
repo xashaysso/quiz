@@ -9,7 +9,7 @@ import (
 )
 
 type QuizHandler struct {
-	Repo *repositories.PgQuizRepo
+	Repo repositories.QuizRepository
 }
 
 func (h *QuizHandler) ListQuizzes(c *gin.Context) {

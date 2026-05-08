@@ -12,7 +12,7 @@ import (
 )
 
 type AnswerHandler struct {
-	Repo *repositories.PgAnswerRepo
+	Repo repositories.AnswerRepository
 }
 
 func (h *AnswerHandler) CheckAnswer(c *gin.Context) {

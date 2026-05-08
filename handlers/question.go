@@ -10,7 +10,7 @@ import (
 )
 
 type QuestionHandler struct {
-	Repo *repositories.PgQuestionRepo
+	Repo repositories.QuestionRepository
 }
 
 func (h *QuestionHandler) CreateQuestion(c *gin.Context) {
