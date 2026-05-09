@@ -5,6 +5,7 @@ import (
 	APIentities "quiz/entities/api"
 	entities "quiz/entities/db"
 	"quiz/entities/dto"
+	"time"
 )
 
 type QuizRepository interface {
@@ -29,4 +30,15 @@ type AnswerRepository interface {
 	GetAnswer(ctx context.Context, answerID int)(APIentities.AnswerAPI, error)
 	DeleteAnswer(ctx context.Context, answerID int)(error)
 	UpdateAnswer(ctx context.Context, answerID int, data dto.UpdateAnswerDTO)(APIentities.AnswerAPI, error)
+}
+
+type UserRepository interface {
+	CreateUser(ctx context.Context, username string, password_hash string) (entities.User, error)
+	GetByUsername(ctx context.Context, username string) (entities.User, error)
+}
+
+type SessionRepository interface {
+	Get(ctx context.Context, token string)(int, error)
+	Set(ctx context.Context, token string, userID int, ttl time.Duration)(error)
+	Delete(ctx context.Context, token string) (error)
 }

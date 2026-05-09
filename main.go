@@ -5,8 +5,10 @@ import (
 	"os"
 
 	"quiz/db"
-	"quiz/db/repositories"
+	"quiz/db/repositories/pg"
+	"quiz/db/repositories/redis"
 	"quiz/handlers"
+	"quiz/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -20,19 +22,37 @@ func main() {
 		log.Println("No .env file found")
 	}
 	PORT := os.Getenv("PORT")
+	REDIS_ADDR := os.Getenv("REDIS_ADDR")
 
+
+	// postgre init
 	globalPool := db.Serve()
 	defer globalPool.Close()
 
-	quizRepo := repositories.NewQuizRepo(globalPool)
-	questionRepo := repositories.NewQuestionRepo(globalPool)
-	answerRepo := repositories.NewAnswerRepo(globalPool)
+	quizRepo := pg.NewQuizRepo(globalPool)
+	questionRepo := pg.NewQuestionRepo(globalPool)
+	answerRepo := pg.NewAnswerRepo(globalPool)
+	userRepo := pg.NewUserRepo(globalPool)
 
 	quizH := &handlers.QuizHandler{Repo: quizRepo}
 	questionH := &handlers.QuestionHandler{Repo: questionRepo}
 	answerH := &handlers.AnswerHandler{Repo: answerRepo}
 
+
+	// redis init
+	rdb := db.NewRedisClient(REDIS_ADDR);
+
+	sessionRepo := redis.NewSessionRepository(rdb)
+
+	authH := &handlers.AuthHandler{Repo: userRepo, SessionRepo: sessionRepo}
+
+	// routes
+
+	router.POST("/register", authH.Register)
+	router.POST("/login", authH.Login)
+
 	quiz := router.Group("/quizzes")
+	quiz.Use(middleware.AuthMiddleware(sessionRepo))
 	{
 		// quiz handlers
 		quiz.GET("/", quizH.ListQuizzes)
@@ -46,6 +66,7 @@ func main() {
 	}
 
 	question := router.Group("/questions")
+	question.Use(middleware.AuthMiddleware(sessionRepo))
 	{
 		// question handlers
 		question.GET("/:question_id", questionH.GetQuestion)
@@ -60,7 +81,9 @@ func main() {
 	}
 
 	answer := router.Group("/answers")
+	answer.Use(middleware.AuthMiddleware(sessionRepo))
 	{
+		// answer handlers
 		answer.GET("/:answer_id", answerH.GetAnswer)
 		answer.PATCH("/:answer_id", answerH.UpdateAnswer)
 		answer.DELETE("/:answer_id", answerH.DeleteAnswer)

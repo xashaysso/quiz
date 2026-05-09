@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 func execSQL(ctx context.Context, pool *pgxpool.Pool, sql string){
@@ -35,6 +36,13 @@ func CreateTables(ctx context.Context, pool *pgxpool.Pool) {
 		correct BOOLEAN DEFAULT false
 	)`);
 
+	execSQL(ctx, pool, `CREATE TABLE IF NOT EXISTS users(
+		id SERIAL PRIMARY KEY,
+		username TEXT NOT NULL UNIQUE,
+		password_hash TEXT NOT NULL,
+		created_at TIMESTAMP DEFAULT NOW()
+	)`);
+
 	log.Println("All tables created succesfully.");
 }
 
@@ -52,9 +60,24 @@ func Serve() *pgxpool.Pool {
 		log.Fatalf("Database ping failed: %v", err);
 	}
 
-	log.Printf("Connected to db succesfully");
+	log.Printf("Connected to db successfully");
 
 	CreateTables(ctx, pool);
 
 	return pool;
+}
+
+func NewRedisClient(addr string) *redis.Client {
+	ctx := context.Background()
+	rdb := redis.NewClient(&redis.Options{
+		Addr: addr,
+		Password: "",
+		DB: 0,
+	})
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatalf("Redis connection failed: %v", err)
+	}
+	log.Printf("Connected to redis sucessfully")
+
+	return rdb
 }
