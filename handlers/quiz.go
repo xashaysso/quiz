@@ -25,8 +25,9 @@ func (h *QuizHandler) ListQuizzes(c *gin.Context) {
 func (h *QuizHandler) DeleteQuiz(c *gin.Context){
 	ctx := c.Request.Context()
 	quizID := c.Param("quiz_id")
+	userID := c.MustGet("userID").(int)
 
-	err := h.Repo.DeleteQuiz(ctx, quizID)
+	err := h.Repo.DeleteQuiz(ctx, quizID, userID)
 	if err != nil{
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -52,8 +53,11 @@ func (h *QuizHandler) CreateQuiz(c *gin.Context){
 		})
 		return;
 	}
+	
+	// middleware guarantees userID of type int there
+	userID := c.MustGet("userID").(int)
 
-	newQuiz, err := h.Repo.CreateQuiz(ctx, *body.Name, body.Description);
+	newQuiz, err := h.Repo.CreateQuiz(ctx, *body.Name, body.Description, userID);
 	if err != nil{
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -66,6 +70,7 @@ func (h *QuizHandler) CreateQuiz(c *gin.Context){
 func (h *QuizHandler) UpdateQuiz(c *gin.Context){
 	ctx := c.Request.Context()
 	quizID := c.Param("quiz_id");
+	userID := c.MustGet("userID").(int)
 
 	var body dto.UpdateQuizDTO;
 
@@ -82,7 +87,7 @@ func (h *QuizHandler) UpdateQuiz(c *gin.Context){
 		return;
 	}
 
-	newQuiz, err := h.Repo.UpdateQuiz(ctx, quizID, body.Name, body.Description);
+	newQuiz, err := h.Repo.UpdateQuiz(ctx, quizID, body.Name, body.Description, userID);
 	if err != nil{
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),

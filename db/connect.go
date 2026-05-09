@@ -17,10 +17,18 @@ func execSQL(ctx context.Context, pool *pgxpool.Pool, sql string){
 }
 
 func CreateTables(ctx context.Context, pool *pgxpool.Pool) {
+	execSQL(ctx, pool, `CREATE TABLE IF NOT EXISTS users(
+		id SERIAL PRIMARY KEY,
+		username TEXT NOT NULL UNIQUE,
+		password_hash TEXT NOT NULL,
+		created_at TIMESTAMP DEFAULT NOW()
+	)`);
+
 	execSQL(ctx, pool, `CREATE TABLE IF NOT EXISTS quiz(
 		id SERIAL PRIMARY KEY,
 		name TEXT NOT NULL,
-		description TEXT
+		description TEXT,
+		creator_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE
 	)`);
 
 	execSQL(ctx, pool, `CREATE TABLE IF NOT EXISTS questions(
@@ -34,13 +42,6 @@ func CreateTables(ctx context.Context, pool *pgxpool.Pool) {
 		text TEXT NOT NULL,
 		question_id INT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
 		correct BOOLEAN DEFAULT false
-	)`);
-
-	execSQL(ctx, pool, `CREATE TABLE IF NOT EXISTS users(
-		id SERIAL PRIMARY KEY,
-		username TEXT NOT NULL UNIQUE,
-		password_hash TEXT NOT NULL,
-		created_at TIMESTAMP DEFAULT NOW()
 	)`);
 
 	log.Println("All tables created succesfully.");
