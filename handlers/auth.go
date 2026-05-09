@@ -113,3 +113,24 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"message": "successfully logged in",
 	})
 }
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	ctx := c.Request.Context()
+	token, err := c.Cookie("token")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "already logged out",
+		})
+		return
+	}
+	err = h.SessionRepo.Delete(ctx, token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to delete session",
+		})
+	}
+	c.SetCookie("token", token, -1, "/", "", false, true)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "logged out",
+	})
+}

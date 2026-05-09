@@ -47,9 +47,13 @@ func main() {
 	authH := &handlers.AuthHandler{Repo: userRepo, SessionRepo: sessionRepo}
 
 	// routes
-
-	router.POST("/register", authH.Register)
-	router.POST("/login", authH.Login)
+	auth := router.Group("/auth")
+	{
+		// auth handlers
+		auth.POST("/register", authH.Register)
+		auth.POST("/login", authH.Login)
+		auth.POST("/logout", authH.Logout)
+	}
 
 	quiz := router.Group("/quizzes")
 	quiz.Use(middleware.AuthMiddleware(sessionRepo))
