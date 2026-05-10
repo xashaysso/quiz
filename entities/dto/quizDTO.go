@@ -1,8 +1,8 @@
 package dto
 
 type CreateQuizDTO struct {
-	Name        *string `json:"name"`
-	Description string  `json:"description"`
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
 }
 
 type UpdateQuizDTO struct {

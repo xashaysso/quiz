@@ -10,9 +10,10 @@ import (
 
 type QuizRepository interface {
 	GetQuiz(ctx context.Context)([]entities.Quiz, error)
-	DeleteQuiz(ctx context.Context, quizID string, userID int)(error)
+	GetQuizByID(ctx context.Context, quizID int) (entities.Quiz, error)
+	DeleteQuiz(ctx context.Context, quizID int)(error)
 	CreateQuiz(ctx context.Context, quiz_name string, quiz_description string, userID int)(entities.Quiz, error)
-	UpdateQuiz(ctx context.Context, quizID string, name *string, description *string, userID int)(entities.Quiz, error)
+	UpdateQuiz(ctx context.Context, quizID int, name *string, description *string)(entities.Quiz, error)
 }
 
 type QuestionRepository interface {

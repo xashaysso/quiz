@@ -1,20 +1,16 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
-	"quiz/db/repositories"
 	"quiz/entities/dto"
-	"time"
+	"quiz/services"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
-	Repo repositories.UserRepository
-	SessionRepo repositories.SessionRepository
+	AuthService *services.AuthService
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
@@ -27,48 +23,38 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		})
 		return
 	}
-	if len(body.Username) < 3 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "minimum username length is 3",
-		})
-		return
-	}
-	if len(body.Password) < 5 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error" : "minimum password length is 5",
-		})
-		return
-	}
-	password := []byte(body.Password)
-	hash, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
+
+	user, token, err := h.AuthService.Register(ctx, body.Username, body.Password)
 	if err != nil {
+		if errors.Is(err, services.ErrUserAlreadyExists) {
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "username already taken",
+			})
+			return
+		}
+		if errors.Is(err, services.ErrInvalidPassword) || errors.Is(err, services.ErrInvalidUsername) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "couldn't hash the password",
+			"error": "internal server error",
 		})
 		return
 	}
 
-	user, err := h.Repo.CreateUser(ctx, body.Username, string(hash))
-	if err != nil {
-		if pgErr, ok := err.(*pgconn.PgError); ok {
-            if pgErr.Code == "23505" { 
-                c.JSON(http.StatusBadRequest, gin.H{
-					"error": "username already taken",
-				})
-				return
-            }
-        }
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	res := dto.RegisterResponse{
+	h.setAuthCookie(c, token)
+
+	newUser := dto.RegisterResponse{
 		ID: user.ID,
 		Username: user.Username,
 		CreatedAt: user.CreatedAt,
 	}
-	c.JSON(http.StatusCreated, res)
+	c.JSON(http.StatusCreated, gin.H{
+		"user": newUser,
+		"token": token,
+	})
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -81,32 +67,22 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		})
 		return
 	}
-	user, err := h.Repo.GetByUsername(ctx, body.Username)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "invalid username or password",
-		})
-		return
-	}
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(body.Password) )
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "invalid username or password",
-		})
-		return
-	}
 
-	token := uuid.New().String()
-	ttl := 24 * time.Hour
-	err = h.SessionRepo.Set(ctx, token, user.ID, ttl)
+	token, err := h.AuthService.Login(ctx, body.Username, body.Password)
 	if err != nil {
+		if errors.Is(err, services.ErrWrongCredentials) {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to create user session",
+			"error": "something went wrong",
 		})
 		return
 	}
 
-	c.SetCookie("token", token, int(ttl.Seconds()), "/", "", false, true)
+	h.setAuthCookie(c, token)
 
 	c.JSON(http.StatusOK, gin.H{
 		"token": token,
@@ -123,14 +99,20 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		})
 		return
 	}
-	err = h.SessionRepo.Delete(ctx, token)
+	err = h.AuthService.Logout(ctx, token)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to delete session",
+			"error": "something went wrong",
 		})
+		return
 	}
 	c.SetCookie("token", token, -1, "/", "", false, true)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "logged out",
 	})
+}
+
+// helper method
+func (h* AuthHandler) setAuthCookie(c *gin.Context, token string) {
+	c.SetCookie("token", token, 3600*24, "/", "", false, true)
 }

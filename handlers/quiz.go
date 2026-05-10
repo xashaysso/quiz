@@ -1,22 +1,24 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
-	"quiz/db/repositories"
 	"quiz/entities/dto"
+	"quiz/services"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 type QuizHandler struct {
-	Repo repositories.QuizRepository
+	QuizService *services.QuizService
 }
 
 func (h *QuizHandler) ListQuizzes(c *gin.Context) {
 	ctx := c.Request.Context()
-	quizzes, err := h.Repo.GetQuiz(ctx)
+	quizzes, err := h.QuizService.ListQuizzes(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
 		return;
 	}
 	c.JSON(http.StatusOK, quizzes);
@@ -24,15 +26,34 @@ func (h *QuizHandler) ListQuizzes(c *gin.Context) {
 
 func (h *QuizHandler) DeleteQuiz(c *gin.Context){
 	ctx := c.Request.Context()
-	quizID := c.Param("quiz_id")
+	idStr := c.Param("quiz_id")
+
+	quizID, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid quiz id format",
+		})
+		return
+	}
 	userID := c.MustGet("userID").(int)
 
-	err := h.Repo.DeleteQuiz(ctx, quizID, userID)
+	err = h.QuizService.DeleteQuiz(ctx, quizID, userID)
 	if err != nil{
+		if errors.Is(err, services.ErrQuizNotFound){
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": err.Error(),
+			})
+			return
+		} else if errors.Is(err, services.ErrNotAnAuthor) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "something went wrong",
 		})
-		return;
+		return
 	}
 	c.Status(http.StatusNoContent);
 }
@@ -47,20 +68,20 @@ func (h *QuizHandler) CreateQuiz(c *gin.Context){
 		})
 		return;
 	}
-	if body.Name == nil{
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "field 'name' is required in JSON body",
-		})
-		return;
-	}
 	
 	// middleware guarantees userID of type int there
 	userID := c.MustGet("userID").(int)
 
-	newQuiz, err := h.Repo.CreateQuiz(ctx, *body.Name, body.Description, userID);
+	newQuiz, err := h.QuizService.CreateQuiz(ctx, body.Name, body.Description, userID)
 	if err != nil{
+		if errors.Is(err, services.ErrInvalidName) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "something went wrong",
 		})
 		return;
 	}
@@ -69,7 +90,14 @@ func (h *QuizHandler) CreateQuiz(c *gin.Context){
 
 func (h *QuizHandler) UpdateQuiz(c *gin.Context){
 	ctx := c.Request.Context()
-	quizID := c.Param("quiz_id");
+	idStr := c.Param("quiz_id");
+	quizID, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid quiz id format",
+		})
+		return
+	}
 	userID := c.MustGet("userID").(int)
 
 	var body dto.UpdateQuizDTO;
@@ -80,17 +108,22 @@ func (h *QuizHandler) UpdateQuiz(c *gin.Context){
 		})
 		return;
 	}
-	if body.Name == nil && body.Description == nil{
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":"field 'name' and/or 'description' required in json body",
-		})
-		return;
-	}
 
-	newQuiz, err := h.Repo.UpdateQuiz(ctx, quizID, body.Name, body.Description, userID);
+	newQuiz, err := h.QuizService.UpdateQuiz(ctx, quizID, body.Name, body.Description, userID);
 	if err != nil{
+		if errors.Is(err, services.ErrQuizNotFound){
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": err.Error(),
+			})
+			return
+		} else if errors.Is(err, services.ErrNotAnAuthor) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "something went wrong",
 		})
 		return;
 	}

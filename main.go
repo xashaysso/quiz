@@ -9,6 +9,7 @@ import (
 	"quiz/db/repositories/redis"
 	"quiz/handlers"
 	"quiz/middleware"
+	"quiz/services"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -34,18 +35,23 @@ func main() {
 	answerRepo := pg.NewAnswerRepo(globalPool)
 	userRepo := pg.NewUserRepo(globalPool)
 
-	quizH := &handlers.QuizHandler{Repo: quizRepo}
+	quizService := &services.QuizService{QuizRepo: quizRepo}
+
+	quizH := &handlers.QuizHandler{QuizService: quizService}
 	questionH := &handlers.QuestionHandler{Repo: questionRepo}
 	answerH := &handlers.AnswerHandler{Repo: answerRepo}
-
 
 	// redis init
 	rdb := db.NewRedisClient(REDIS_ADDR);
 
 	sessionRepo := redis.NewSessionRepository(rdb)
 
-	authH := &handlers.AuthHandler{Repo: userRepo, SessionRepo: sessionRepo}
+	authService := &services.AuthService{
+		UserRepo: userRepo,
+		SessionRepo: sessionRepo,
+	}
 
+	authH := &handlers.AuthHandler{AuthService: authService}
 	// routes
 	auth := router.Group("/auth")
 	{

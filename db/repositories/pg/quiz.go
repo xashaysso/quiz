@@ -43,8 +43,19 @@ func (r *PgQuizRepo) GetQuiz(ctx context.Context)([]entities.Quiz, error){
 	return quizList, nil;
 }
 
-func (r *PgQuizRepo) DeleteQuiz(ctx context.Context, quizID string, userID int)(error){
-	cmdTag, err := r.Pool.Exec(ctx, `DELETE FROM quiz WHERE id = $1 AND creator_id = $2`, quizID, userID);
+
+func (r *PgQuizRepo) GetQuizByID(ctx context.Context, quizID int) (entities.Quiz, error) {
+	var quiz entities.Quiz
+	err := r.Pool.QueryRow(ctx, `SELECT id, name, description, creator_id FROM quiz WHERE id = $1`, quizID).Scan(&quiz.ID, &quiz.Name, &quiz.Description, &quiz.CreatorID)
+	if err != nil {
+		return entities.Quiz{}, err
+	}
+	return quiz, nil
+}
+
+
+func (r *PgQuizRepo) DeleteQuiz(ctx context.Context, quizID int)(error){
+	cmdTag, err := r.Pool.Exec(ctx, `DELETE FROM quiz WHERE id = $1`, quizID);
 	if err != nil{
 		return err;
 	}
@@ -64,7 +75,7 @@ func (r *PgQuizRepo) CreateQuiz(ctx context.Context, quiz_name string, quiz_desc
 	return newQuiz, nil;
 }
 
-func (r *PgQuizRepo) UpdateQuiz(ctx context.Context, quizID string, name *string, description *string, userID int)(entities.Quiz, error){
+func (r *PgQuizRepo) UpdateQuiz(ctx context.Context, quizID int, name *string, description *string)(entities.Quiz, error){
 	query := "UPDATE quiz SET ";
 	params := []interface{}{};
 	paramCounter := 1;
@@ -90,13 +101,13 @@ func (r *PgQuizRepo) UpdateQuiz(ctx context.Context, quizID string, name *string
 		return entities.Quiz{}, fmt.Errorf("no fields to update");
 	}
 
-	query += fmt.Sprintf(" WHERE id = $%d AND creator_id = $%d RETURNING id, name, description, creator_id", paramCounter, paramCounter+1);
-	params = append(params, quizID, userID);
+	query += fmt.Sprintf(" WHERE id = $%d RETURNING id, name, description, creator_id", paramCounter);
+	params = append(params, quizID);
 
 	var updatedQuiz entities.Quiz;
 	err := r.Pool.QueryRow(ctx, query, params...).Scan(&updatedQuiz.ID, &updatedQuiz.Name, &updatedQuiz.Description, &updatedQuiz.CreatorID);
 	if err == pgx.ErrNoRows{
-		return entities.Quiz{}, fmt.Errorf("quiz with id %s not found", quizID);
+		return entities.Quiz{}, fmt.Errorf("quiz with id %d not found", quizID);
 	}
 	if err != nil{
 		return entities.Quiz{}, err;
