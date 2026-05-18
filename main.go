@@ -30,16 +30,21 @@ func main() {
 	globalPool := db.Serve()
 	defer globalPool.Close()
 
+	// repositories
 	quizRepo := pg.NewQuizRepo(globalPool)
 	questionRepo := pg.NewQuestionRepo(globalPool)
 	answerRepo := pg.NewAnswerRepo(globalPool)
 	userRepo := pg.NewUserRepo(globalPool)
 
+	// services
 	quizService := &services.QuizService{QuizRepo: quizRepo}
+	questionService := &services.QuestionService{QuestionRepo: questionRepo}
+	answerService := &services.AnswerService{AnswerRepo: answerRepo}
 
+	// handlers
 	quizH := &handlers.QuizHandler{QuizService: quizService}
-	questionH := &handlers.QuestionHandler{Repo: questionRepo}
-	answerH := &handlers.AnswerHandler{Repo: answerRepo}
+	questionH := &handlers.QuestionHandler{QuestionService: questionService}
+	answerH := &handlers.AnswerHandler{AnswerService: answerService}
 
 	// redis init
 	rdb := db.NewRedisClient(REDIS_ADDR);

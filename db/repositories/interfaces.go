@@ -17,16 +17,16 @@ type QuizRepository interface {
 }
 
 type QuestionRepository interface {
-	GetQuizQuestions(ctx context.Context, id string) ([]APIentities.QuestionAPI, error)
+	GetQuizQuestions(ctx context.Context, id int) ([]APIentities.QuestionAPI, error)
 	CreateQuestion(ctx context.Context, quizID int, data dto.CreateQuestionDTO)(APIentities.QuestionAPI, error)
-	GetQuestion(ctx context.Context, questionID string)(APIentities.QuestionAPI, error)
-	UpdateQuestion(ctx context.Context, questionID string, data dto.UpdateQuestionDTO)(APIentities.QuestionAPI, error)
-	DeleteQuestion(ctx context.Context, questionID string)(error)
+	GetQuestion(ctx context.Context, questionID int)(APIentities.QuestionAPI, error)
+	UpdateQuestion(ctx context.Context, questionID int, data dto.UpdateQuestionDTO)(APIentities.QuestionAPI, error)
+	DeleteQuestion(ctx context.Context, questionID int)(error)
 }
 
 type AnswerRepository interface {
-	GetQuizAnswers(ctx context.Context, question_id string) ([]entities.Answer, error)
-	CheckAnswer(ctx context.Context, questionID string, answerID int) (bool, error)
+	GetQuizAnswers(ctx context.Context, questionID int) ([]entities.Answer, error)
+	CheckAnswer(ctx context.Context, questionID int, answerID int) (bool, error)
 	CreateAnswer(ctx context.Context, questionID int, data dto.CreateAnswerDTO)(APIentities.AnswerAPI, error)
 	GetAnswer(ctx context.Context, answerID int)(APIentities.AnswerAPI, error)
 	DeleteAnswer(ctx context.Context, answerID int)(error)

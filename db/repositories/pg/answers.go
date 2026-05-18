@@ -24,9 +24,9 @@ func NewAnswerRepo (p *pgxpool.Pool) *PgAnswerRepo{
 
 // repo methods
 
-func (r *PgAnswerRepo) GetQuizAnswers(ctx context.Context, question_id string) ([]entities.Answer, error) {
+func (r *PgAnswerRepo) GetQuizAnswers(ctx context.Context, questionID int) ([]entities.Answer, error) {
 	var answerList []entities.Answer
-	rows, err := r.Pool.Query(ctx, `SELECT id, text FROM answers WHERE question_id = $1`, question_id)
+	rows, err := r.Pool.Query(ctx, `SELECT id, text FROM answers WHERE question_id = $1`, questionID)
 	if rows.Err() != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (r *PgAnswerRepo) GetQuizAnswers(ctx context.Context, question_id string) (
 	return answerList, nil
 }
 
-func (r *PgAnswerRepo) CheckAnswer(ctx context.Context, questionID string, answerID int) (bool, error) {
+func (r *PgAnswerRepo) CheckAnswer(ctx context.Context, questionID int, answerID int) (bool, error) {
 	var isCorrect bool
 
 	err := r.Pool.QueryRow(ctx, `SELECT correct FROM answers WHERE id = $1`, answerID).Scan(&isCorrect)

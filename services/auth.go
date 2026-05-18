@@ -16,10 +16,7 @@ var (
 	ErrInvalidUsername = errors.New("username is too short")
 	ErrInvalidPassword = errors.New("password is too short")
 	ErrWrongCredentials = errors.New("wrong username or password")
-	ErrInvalidHash = errors.New("couldn't hash the password")
-	ErrUserSession = errors.New("couldn't create user session")
 	ErrUserAlreadyExists = errors.New("user already exists")
-	ErrUnableToDeleteSession = errors.New("unable to delete session")
 )
 
 type AuthService struct {
@@ -37,7 +34,7 @@ func (s *AuthService) Register(ctx context.Context, username, password string) (
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return entities.User{}, "", ErrInvalidHash
+		return entities.User{}, "", err
 	}
 
 	user, err := s.UserRepo.CreateUser(ctx, username, string(hash))
@@ -72,7 +69,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 
 	err = s.SessionRepo.Set(ctx, token, user.ID, ttl)
 	if err != nil {
-		return "", ErrUserSession
+		return "", err
 	}
 	return token, nil
 }
@@ -80,7 +77,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 func (s *AuthService) Logout(ctx context.Context, token string) (error) {
 	err := s.SessionRepo.Delete(ctx, token)
 	if err != nil {
-		return ErrUnableToDeleteSession
+		return err
 	}
 	return nil
 }

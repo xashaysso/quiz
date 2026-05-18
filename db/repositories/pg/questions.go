@@ -22,7 +22,7 @@ func NewQuestionRepo (p *pgxpool.Pool) *PgQuestionRepo{
 
 // repo methods
 
-func (r *PgQuestionRepo) GetQuizQuestions(ctx context.Context, id string) ([]APIentities.QuestionAPI, error) {
+func (r *PgQuestionRepo) GetQuizQuestions(ctx context.Context, id int) ([]APIentities.QuestionAPI, error) {
 	rows, err := r.Pool.Query(ctx, `SELECT q.id AS question_id, q.text AS question_text, a.id AS answer_id, a.text AS answer_id, a.correct
 								FROM questions q JOIN answers a	ON q.id = a.question_id WHERE q.quiz_id = $1 ORDER BY q.id, a.id`, id)
 	if rows.Err() != nil {
@@ -125,7 +125,7 @@ func (r *PgQuestionRepo) CreateQuestion(ctx context.Context, quizID int, data dt
 	return resData, nil;
 }
 
-func (r *PgQuestionRepo) GetQuestion(ctx context.Context, questionID string)(APIentities.QuestionAPI, error){
+func (r *PgQuestionRepo) GetQuestion(ctx context.Context, questionID int)(APIentities.QuestionAPI, error){
 	var question APIentities.QuestionAPI;
 	questionAnswers := []APIentities.AnswerAPI{};
 
@@ -154,7 +154,7 @@ func (r *PgQuestionRepo) GetQuestion(ctx context.Context, questionID string)(API
 	return question, nil;
 }
 
-func (r *PgQuestionRepo) UpdateQuestion(ctx context.Context, questionID string, data dto.UpdateQuestionDTO)(APIentities.QuestionAPI, error){
+func (r *PgQuestionRepo) UpdateQuestion(ctx context.Context, questionID int, data dto.UpdateQuestionDTO)(APIentities.QuestionAPI, error){
 	tx, err := r.Pool.Begin(ctx);
 	if err != nil{
 		return APIentities.QuestionAPI{}, err;
@@ -168,7 +168,7 @@ func (r *PgQuestionRepo) UpdateQuestion(ctx context.Context, questionID string, 
 			return APIentities.QuestionAPI{}, err;
 		}
 		if tag.RowsAffected() == 0{
-			return APIentities.QuestionAPI{}, fmt.Errorf("question ID %s not found", questionID);
+			return APIentities.QuestionAPI{}, fmt.Errorf("question ID %d not found", questionID);
 		}
 	}
 
@@ -196,7 +196,7 @@ func (r *PgQuestionRepo) UpdateQuestion(ctx context.Context, questionID string, 
 	return r.GetQuestion(ctx, questionID);
 }
 
-func (r *PgQuestionRepo) DeleteQuestion(ctx context.Context, questionID string)(error){
+func (r *PgQuestionRepo) DeleteQuestion(ctx context.Context, questionID int)(error){
 	cmdTag, err := r.Pool.Exec(ctx, `DELETE FROM questions WHERE id = $1`, questionID);
 	if err != nil{
 		return err;

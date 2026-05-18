@@ -11,5 +11,5 @@ type UpdateAnswerDTO struct {
 }
 
 type CheckAnswerDTO struct {
-	AnswerID *int `json:"answer_id"`
+	AnswerID int `json:"answer_id"`
 }

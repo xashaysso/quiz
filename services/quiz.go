@@ -2,9 +2,13 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"quiz/db/repositories"
 	entities "quiz/entities/db"
+	"strconv"
+
+	"github.com/jackc/pgx/v5"
 )
 
 var (
@@ -26,15 +30,22 @@ func (s *QuizService) ListQuizzes(ctx context.Context) ([]entities.Quiz, error) 
 	return quizzes, nil
 }
 
-func (s *QuizService) DeleteQuiz(ctx context.Context, quizID, userID int)(error) {
-	quiz, err := s.QuizRepo.GetQuizByID(ctx, quizID)
+func (s *QuizService) DeleteQuiz(ctx context.Context, quizID string, userID int)(error) {
+	qID, err := strconv.Atoi(quizID)
 	if err != nil {
-		return ErrQuizNotFound
+		return ErrInvalidIDFormat
+	}
+	quiz, err := s.QuizRepo.GetQuizByID(ctx, qID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return ErrQuizNotFound
+		}
+		return err
 	}
 	if quiz.CreatorID != userID {
 		return ErrNotAnAuthor
 	}
-	return s.QuizRepo.DeleteQuiz(ctx, quizID)
+	return s.QuizRepo.DeleteQuiz(ctx, qID)
 }
 
 func (s *QuizService) CreateQuiz(ctx context.Context, name, description string, userID int) (entities.Quiz, error){
@@ -48,19 +59,26 @@ func (s *QuizService) CreateQuiz(ctx context.Context, name, description string, 
 	return newQuiz, nil
 }
 
-func (s *QuizService) UpdateQuiz(ctx context.Context, quizID int, name, description *string, userID int) (entities.Quiz, error){
+func (s *QuizService) UpdateQuiz(ctx context.Context, quizID string, name, description *string, userID int) (entities.Quiz, error){
+	qID, err := strconv.Atoi(quizID)
+	if err != nil {
+		return entities.Quiz{}, ErrInvalidIDFormat
+	}
 	if name == nil && description == nil{
 		return entities.Quiz{}, ErrNoRequiredFields
 	}
-	quiz, err := s.QuizRepo.GetQuizByID(ctx, quizID)
+	quiz, err := s.QuizRepo.GetQuizByID(ctx, qID)
 	if err != nil {
-		return entities.Quiz{}, ErrQuizNotFound
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return entities.Quiz{}, ErrQuizNotFound
+		}
+		return entities.Quiz{}, err
 	}
 	if quiz.CreatorID != userID {
 		return entities.Quiz{}, ErrNotAnAuthor
 	}
 
-	newQuiz, err := s.QuizRepo.UpdateQuiz(ctx, quizID, name, description);
+	newQuiz, err := s.QuizRepo.UpdateQuiz(ctx, qID, name, description);
 	if err != nil {
 		return entities.Quiz{}, err
 	}

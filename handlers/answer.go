@@ -2,17 +2,14 @@ package handlers
 
 import (
 	"net/http"
-	"quiz/db/repositories"
 	"quiz/entities/dto"
-	"strconv"
-	"strings"
+	"quiz/services"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
 )
 
 type AnswerHandler struct {
-	Repo repositories.AnswerRepository
+	AnswerService *services.AnswerService
 }
 
 func (h *AnswerHandler) CheckAnswer(c *gin.Context) {
@@ -26,20 +23,11 @@ func (h *AnswerHandler) CheckAnswer(c *gin.Context) {
 			return
 		}
 
-		if body.AnswerID == nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "field 'answer_id' is required in JSON body",
-			})
-			return
-		}
-
 		questionID := c.Param("question_id")
 
-		correct, err := h.Repo.CheckAnswer(ctx, questionID, *body.AnswerID)
+		correct, err := h.AnswerService.CheckAnswer(ctx, questionID, body.AnswerID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err.Error(),
-			})
+			HandleError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -50,11 +38,11 @@ func (h *AnswerHandler) CheckAnswer(c *gin.Context) {
 
 func (h *AnswerHandler) ListAnswers(c *gin.Context){
 		ctx := c.Request.Context()
-		question_id := c.Param("question_id")
+		questionID := c.Param("question_id")
 
-		answers, err := h.Repo.GetQuizAnswers(ctx, question_id);
+		answers, err := h.AnswerService.ListAnswers(ctx, questionID)
 		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()});
+			HandleError(c, err)
 			return;
 		}
 		c.JSON(http.StatusOK, answers);
@@ -62,13 +50,7 @@ func (h *AnswerHandler) ListAnswers(c *gin.Context){
 
 func (h *AnswerHandler) CreateAnswer(c *gin.Context){
 		ctx := c.Request.Context()
-		questionID, err := strconv.Atoi(c.Param("question_id"));
-		if err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid question_id format",
-			})
-			return;
-		}
+		questionID := c.Param("question_id")
 
 		var body dto.CreateAnswerDTO;
 
@@ -79,27 +61,9 @@ func (h *AnswerHandler) CreateAnswer(c *gin.Context){
 			return;
 		}
 
-		if body.Text == "" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "field 'text' is required in json body",
-			})
-			return;
-		}
-
-		newAnswer, err := h.Repo.CreateAnswer(ctx, questionID, body);
+		newAnswer, err := h.AnswerService.CreateAnswer(ctx, questionID, body);
 		if err != nil{
-			errorMsg := err.Error();
-
-			if strings.Contains(errorMsg, "not found"){
-				c.JSON(http.StatusNotFound, gin.H{
-					"error": errorMsg,
-				})
-				return;
-			}
-
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": errorMsg,
-			})
+			HandleError(c, err)
 			return;
 		}
 
@@ -108,27 +72,12 @@ func (h *AnswerHandler) CreateAnswer(c *gin.Context){
 
 func (h *AnswerHandler) GetAnswer(c *gin.Context){
 		ctx := c.Request.Context()
-		answerID, err := strconv.Atoi(c.Param("answer_id"));
+		answerID := c.Param("answer_id")
 
-		if err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid answer_id value",
-			})
-			return;
-		}
-
-		answer, err := h.Repo.GetAnswer(ctx, answerID);
+		answer, err := h.AnswerService.GetAnswer(ctx, answerID);
 		
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": err.Error(),
-			})
-			return;
-		}
 		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err.Error(),
-			})
+			HandleError(c, err)
 			return;
 		}
 
@@ -137,25 +86,11 @@ func (h *AnswerHandler) GetAnswer(c *gin.Context){
 
 func (h *AnswerHandler) DeleteAnswer(c *gin.Context){
 		ctx := c.Request.Context()
-		answerID, err := strconv.Atoi(c.Param("answer_id"));
-		if err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid answer_id format",
-			})
-			return;
-		}
+		answerID := c.Param("answer_id");
 
-		err = h.Repo.DeleteAnswer(ctx, answerID);
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": err.Error(),
-			})
-			return;
-		}
+		err := h.AnswerService.DeleteAnswer(ctx, answerID)
 		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err.Error(),
-			})
+			HandleError(c, err)
 			return;
 		}
 
@@ -164,13 +99,7 @@ func (h *AnswerHandler) DeleteAnswer(c *gin.Context){
 
 func (h *AnswerHandler) UpdateAnswer(c *gin.Context){
 		ctx := c.Request.Context()
-		answerID, err := strconv.Atoi(c.Param("answer_id"));
-		if err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid answer_id format",
-			})
-			return;
-		}
+		answerID := c.Param("answer_id");
 
 		var body dto.UpdateAnswerDTO
 
@@ -181,32 +110,9 @@ func (h *AnswerHandler) UpdateAnswer(c *gin.Context){
 			return;
 		}
 
-		if body.Text == nil && body.NewCorrectID == nil{
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "fields text and/or correct_id are required in json body",
-			})
-			return;
-		}
-
-		updatedAnswer, err := h.Repo.UpdateAnswer(ctx, answerID, body);
+		updatedAnswer, err := h.AnswerService.UpdateAnswer(ctx, answerID, body);
 		if err != nil{
-			errMsg := err.Error();
-			if strings.Contains(errMsg, "not found"){
-				c.JSON(http.StatusNotFound, gin.H{
-					"error": errMsg,
-				})
-				return;
-			}
-			if strings.Contains(errMsg, "new correct answer id"){
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error": errMsg,
-				})
-				return;
-			}
-
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": errMsg,
-			})
+			HandleError(c, err)
 			return;
 		}
 

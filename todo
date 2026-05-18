@@ -1,1 +1,13 @@
-move quiz business logic to /services folder
+// minor fixes: 
+[] TEST ROUTES THROUGH POSTMAN TO CHECK FOR BUGS**
+[x] move question/answer business logic to /services folder
+[] fix that any user can create/delete/update questions and answers*
+[x] add method that will handle errors to ensure DRY principle
+[] add interfaces to handler->service logic instead of struct
+
+// good to do
+[] add logging to all /services through "slog"
+[] add tests to main functions
+
+// major features:
+[] add some microservice (maybe stats) that will talk with main through gRPC or later w Kafka
