@@ -23,7 +23,9 @@ func (h *QuestionHandler) CreateQuestion(c *gin.Context) {
 			})
 			return
 		}
-		newQuestion, err := h.QuestionService.CreateQuestion(ctx, quizID, body)
+		userID := c.MustGet("userID").(int)
+
+		newQuestion, err := h.QuestionService.CreateQuestion(ctx, quizID, body, userID)
 		if err != nil {
 			HandleError(c, err)
 			return
@@ -67,7 +69,9 @@ func (h *QuestionHandler) UpdateQuestion(c *gin.Context){
 			return;
 		}
 
-		question, err := h.QuestionService.UpdateQuestion(ctx, questionID, body)
+		userID := c.MustGet("userID").(int)
+
+		question, err := h.QuestionService.UpdateQuestion(ctx, questionID, body, userID)
 		if err != nil{
 			HandleError(c, err)
 			return;
@@ -80,7 +84,9 @@ func (h *QuestionHandler) DeleteQuestion(c *gin.Context){
 		ctx := c.Request.Context()
 		questionID := c.Param("question_id");
 
-		err := h.QuestionService.DeleteQuestion(ctx, questionID)
+		userID := c.MustGet("userID").(int)
+
+		err := h.QuestionService.DeleteQuestion(ctx, questionID, userID)
 		if err != nil{
 			HandleError(c, err)
 			return;

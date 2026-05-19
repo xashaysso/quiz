@@ -59,7 +59,7 @@ func (s *AnswerService) ListAnswers(ctx context.Context, questionID string) ([]e
 	return answers, nil
 }
 
-func (s *AnswerService) CreateAnswer(ctx context.Context, questionID string, data dto.CreateAnswerDTO) (APIentities.AnswerAPI, error) {
+func (s *AnswerService) CreateAnswer(ctx context.Context, questionID string, data dto.CreateAnswerDTO, userID int) (APIentities.AnswerAPI, error) {
 	qID, err := strconv.Atoi(questionID);
 	if err != nil{
 		return APIentities.AnswerAPI{}, ErrInvalidIDFormat;
@@ -67,6 +67,14 @@ func (s *AnswerService) CreateAnswer(ctx context.Context, questionID string, dat
 
 	if data.Text == "" {
 		return APIentities.AnswerAPI{}, ErrInvalidAnswerText;
+	}
+
+	isOwner, err := s.AnswerRepo.CheckIfQuestionOwner(ctx, qID, userID)
+	if err != nil {
+		return APIentities.AnswerAPI{}, err
+	}
+	if !isOwner {
+		return APIentities.AnswerAPI{}, ErrNotAnAuthor
 	}
 
 	return s.AnswerRepo.CreateAnswer(ctx, qID, data)
@@ -89,10 +97,17 @@ func (s *AnswerService) GetAnswer(ctx context.Context, answerID string) (APIenti
 	return answer, nil
 }
 
-func(s *AnswerService) DeleteAnswer(ctx context.Context, answerID string)(error) {
+func(s *AnswerService) DeleteAnswer(ctx context.Context, answerID string, userID int)(error) {
 	aID, err := strconv.Atoi(answerID)
 	if err != nil {
 		return ErrInvalidIDFormat
+	}
+	isOwner, err := s.AnswerRepo.CheckIfAnswerOwner(ctx, aID, userID)
+	if err != nil {
+		return err
+	}
+	if !isOwner {
+		return ErrNotAnAuthor
 	}
 	err = s.AnswerRepo.DeleteAnswer(ctx, aID);
 	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
@@ -102,7 +117,7 @@ func(s *AnswerService) DeleteAnswer(ctx context.Context, answerID string)(error)
 	return nil
 }
 
-func (s *AnswerService) UpdateAnswer(ctx context.Context, answerID string, data dto.UpdateAnswerDTO)(APIentities.AnswerAPI, error) {
+func (s *AnswerService) UpdateAnswer(ctx context.Context, answerID string, data dto.UpdateAnswerDTO, userID int)(APIentities.AnswerAPI, error) {
 	aID, err := strconv.Atoi(answerID)
 	if err != nil {
 		return APIentities.AnswerAPI{}, ErrInvalidIDFormat
@@ -110,11 +125,22 @@ func (s *AnswerService) UpdateAnswer(ctx context.Context, answerID string, data 
 	if data.Text == nil && data.NewCorrectID == nil{
 		return APIentities.AnswerAPI{}, ErrNoFieldsToUpdate;
 	}
+
+	isOwner, err := s.AnswerRepo.CheckIfAnswerOwner(ctx, aID, userID)
+	if err != nil {
+		return APIentities.AnswerAPI{}, err
+	}
+	if !isOwner {
+		return APIentities.AnswerAPI{}, ErrNotAnAuthor
+	}
+
 	answer, err := s.AnswerRepo.UpdateAnswer(ctx, aID, data)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 			return APIentities.AnswerAPI{}, ErrAnswerNotFound
 		}
+
+		// TODO: FIX THIS
 		errMsg := err.Error();
 			if strings.Contains(errMsg, "not found"){
 				return APIentities.AnswerAPI{}, ErrAnswerNotFound;

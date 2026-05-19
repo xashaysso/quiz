@@ -22,6 +22,20 @@ type QuizService struct {
 	QuizRepo repositories.QuizRepository
 }
 
+func (s *QuizService) checkIfAuthor(ctx context.Context, quizID int, userID int) (error) {
+	quiz, err := s.QuizRepo.GetQuizByID(ctx, quizID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return ErrQuizNotFound
+		}
+		return err
+	}
+	if quiz.CreatorID != userID {
+		return ErrNotAnAuthor
+	}
+	return nil
+}
+
 func (s *QuizService) ListQuizzes(ctx context.Context) ([]entities.Quiz, error) {
 	quizzes, err := s.QuizRepo.GetQuiz(ctx)
 	if err != nil {
@@ -35,15 +49,9 @@ func (s *QuizService) DeleteQuiz(ctx context.Context, quizID string, userID int)
 	if err != nil {
 		return ErrInvalidIDFormat
 	}
-	quiz, err := s.QuizRepo.GetQuizByID(ctx, qID)
+	err = s.checkIfAuthor(ctx, qID, userID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return ErrQuizNotFound
-		}
 		return err
-	}
-	if quiz.CreatorID != userID {
-		return ErrNotAnAuthor
 	}
 	return s.QuizRepo.DeleteQuiz(ctx, qID)
 }
@@ -67,20 +75,10 @@ func (s *QuizService) UpdateQuiz(ctx context.Context, quizID string, name, descr
 	if name == nil && description == nil{
 		return entities.Quiz{}, ErrNoRequiredFields
 	}
-	quiz, err := s.QuizRepo.GetQuizByID(ctx, qID)
+	err = s.checkIfAuthor(ctx, qID, userID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return entities.Quiz{}, ErrQuizNotFound
-		}
 		return entities.Quiz{}, err
-	}
-	if quiz.CreatorID != userID {
-		return entities.Quiz{}, ErrNotAnAuthor
 	}
 
-	newQuiz, err := s.QuizRepo.UpdateQuiz(ctx, qID, name, description);
-	if err != nil {
-		return entities.Quiz{}, err
-	}
-	return newQuiz, nil
+	return s.QuizRepo.UpdateQuiz(ctx, qID, name, description);
 }

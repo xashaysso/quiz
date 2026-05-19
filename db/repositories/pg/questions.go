@@ -206,3 +206,26 @@ func (r *PgQuestionRepo) DeleteQuestion(ctx context.Context, questionID int)(err
 	}
 	return nil;
 }
+
+func (r *PgQuestionRepo) CheckIfQuizOwner(ctx context.Context, quizID int, userID int) (bool, error) {
+	var isOwner bool
+
+	err := r.Pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM quiz WHERE id = $1 AND creator_id = $2);`, quizID, userID).Scan(&isOwner)
+	if err != nil {
+		return false, err
+	}
+
+	return isOwner, nil
+}
+
+func (r *PgQuestionRepo) CheckIfQuestionOwner(ctx context.Context, questionID int, userID int) (bool, error) {
+    var isOwner bool
+    err := r.Pool.QueryRow(ctx, `
+        SELECT EXISTS (
+            SELECT 1 FROM questions q
+            JOIN quiz qz ON q.quiz_id = qz.id
+            WHERE q.id = $1 AND qz.creator_id = $2
+        );`, questionID, userID).Scan(&isOwner)
+    
+    return isOwner, err
+}

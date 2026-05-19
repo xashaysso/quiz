@@ -22,6 +22,8 @@ type QuestionRepository interface {
 	GetQuestion(ctx context.Context, questionID int)(APIentities.QuestionAPI, error)
 	UpdateQuestion(ctx context.Context, questionID int, data dto.UpdateQuestionDTO)(APIentities.QuestionAPI, error)
 	DeleteQuestion(ctx context.Context, questionID int)(error)
+	CheckIfQuizOwner(ctx context.Context, quizID int, userID int) (bool, error)
+	CheckIfQuestionOwner(ctx context.Context, questionID int, userID int) (bool, error)
 }
 
 type AnswerRepository interface {
@@ -31,6 +33,8 @@ type AnswerRepository interface {
 	GetAnswer(ctx context.Context, answerID int)(APIentities.AnswerAPI, error)
 	DeleteAnswer(ctx context.Context, answerID int)(error)
 	UpdateAnswer(ctx context.Context, answerID int, data dto.UpdateAnswerDTO)(APIentities.AnswerAPI, error)
+	CheckIfAnswerOwner(ctx context.Context, answerID int, userID int) (bool, error)
+	CheckIfQuestionOwner(ctx context.Context, questionID int, userID int) (bool, error)
 }
 
 type UserRepository interface {

@@ -157,3 +157,32 @@ func (r *PgAnswerRepo) UpdateAnswer(ctx context.Context, answerID int, data dto.
 
 	return r.GetAnswer(ctx, answerID);
 }
+
+func (r *PgAnswerRepo) CheckIfAnswerOwner(ctx context.Context, answerID int, userID int) (bool, error) {
+	var isOwner bool
+
+	err := r.Pool.QueryRow(ctx, `SELECT EXISTS (
+								SELECT 1 FROM answers a 
+								JOIN questions q ON a.question_id = q.id
+								JOIN quiz qz ON q.quiz_id = qz.id
+								WHERE a.id = $1 AND qz.creator_id = $2
+								);`, answerID, userID).Scan(&isOwner)
+	if err != nil {
+		return false, err
+	}
+	return isOwner, nil
+}
+
+func (r *PgAnswerRepo) CheckIfQuestionOwner(ctx context.Context, questionID int, userID int) (bool, error) {
+	var isOwner bool
+
+	err := r.Pool.QueryRow(ctx, `SELECT EXISTS (
+								SELECT 1 FROM questions q
+								JOIN quiz qz ON q.quiz_id = qz.id
+								WHERE q.id = $1 AND qz.creator_id = $2
+								);`, questionID, userID).Scan(&isOwner)
+	if err != nil {
+		return false, err
+	}
+	return isOwner, nil
+}

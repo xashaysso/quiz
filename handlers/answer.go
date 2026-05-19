@@ -61,7 +61,9 @@ func (h *AnswerHandler) CreateAnswer(c *gin.Context){
 			return;
 		}
 
-		newAnswer, err := h.AnswerService.CreateAnswer(ctx, questionID, body);
+		userID := c.MustGet("userID").(int)
+
+		newAnswer, err := h.AnswerService.CreateAnswer(ctx, questionID, body, userID);
 		if err != nil{
 			HandleError(c, err)
 			return;
@@ -88,7 +90,9 @@ func (h *AnswerHandler) DeleteAnswer(c *gin.Context){
 		ctx := c.Request.Context()
 		answerID := c.Param("answer_id");
 
-		err := h.AnswerService.DeleteAnswer(ctx, answerID)
+		userID := c.MustGet("userID").(int)
+
+		err := h.AnswerService.DeleteAnswer(ctx, answerID, userID)
 		if err != nil{
 			HandleError(c, err)
 			return;
@@ -110,7 +114,9 @@ func (h *AnswerHandler) UpdateAnswer(c *gin.Context){
 			return;
 		}
 
-		updatedAnswer, err := h.AnswerService.UpdateAnswer(ctx, answerID, body);
+		userID := c.MustGet("userID").(int)
+
+		updatedAnswer, err := h.AnswerService.UpdateAnswer(ctx, answerID, body, userID);
 		if err != nil{
 			HandleError(c, err)
 			return;
