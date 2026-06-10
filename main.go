@@ -35,10 +35,11 @@ func main() {
 	questionRepo := pg.NewQuestionRepo(globalPool)
 	answerRepo := pg.NewAnswerRepo(globalPool)
 	userRepo := pg.NewUserRepo(globalPool)
+	txManager := pg.NewPgTxManager(globalPool)
 
 	// services
 	quizService := &services.QuizService{QuizRepo: quizRepo}
-	questionService := &services.QuestionService{QuestionRepo: questionRepo}
+	questionService := &services.QuestionService{QuestionRepo: questionRepo, AnswerRepo: answerRepo, TxManager: txManager}
 	answerService := &services.AnswerService{AnswerRepo: answerRepo}
 
 	// handlers

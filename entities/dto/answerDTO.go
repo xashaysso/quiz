@@ -13,3 +13,9 @@ type UpdateAnswerDTO struct {
 type CheckAnswerDTO struct {
 	AnswerID int `json:"answer_id"`
 }
+
+type AnswerResponse struct {
+	ID        int    `json:"id"`
+	Text      string `json:"text"`
+	IsCorrect bool   `json:"is_correct"`
+}

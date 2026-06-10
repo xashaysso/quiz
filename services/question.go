@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"quiz/db/repositories"
-	entities "quiz/entities/api"
+	entities "quiz/entities/db"
 	"quiz/entities/dto"
 	"strconv"
 
@@ -20,89 +20,154 @@ var (
 
 type QuestionService struct {
 	QuestionRepo repositories.QuestionRepository
+	AnswerRepo repositories.AnswerRepository
+	TxManager repositories.TransactionManager
 }
 
-func (s *QuestionService) CreateQuestion (ctx context.Context, quizID string, body dto.CreateQuestionDTO, userID int) (entities.QuestionAPI, error){
+func (s *QuestionService) CreateQuestion (ctx context.Context, quizID string, body dto.CreateQuestionDTO, userID int) (dto.QuestionResponse, error){
 	if len(body.Answers) == 0 {
-		return entities.QuestionAPI{}, ErrNoQuestionAnswers
+		return dto.QuestionResponse{}, ErrNoQuestionAnswers
 	}
 	qID, err := strconv.Atoi(quizID)
 	if err != nil {
-		return entities.QuestionAPI{}, ErrInvalidIDFormat
+		return dto.QuestionResponse{}, ErrInvalidIDFormat
 	}
 
 	isOwner, err := s.QuestionRepo.CheckIfQuizOwner(ctx, qID, userID)
 	if err != nil {
-		return entities.QuestionAPI{}, err
+		return dto.QuestionResponse{}, err
 	}
 	if !isOwner {
-		return entities.QuestionAPI{}, ErrNotAnAuthor
+		return dto.QuestionResponse{}, ErrNotAnAuthor
 	}
 
-	question, err := s.QuestionRepo.CreateQuestion(ctx, qID, body)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return entities.QuestionAPI{}, ErrQuizNotFound
+	var createdQuestionID int
+	var answers []entities.Answer
+
+	err = s.TxManager.WithinTransaction(ctx, func(tx pgx.Tx) error{
+		id, err := s.QuestionRepo.CreateQuestion(ctx, tx, qID, body)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+				return ErrQuizNotFound
+			}
+			return err
 		}
-		return entities.QuestionAPI{}, err
+
+		createdQuestionID = id
+
+		answers = make([]entities.Answer, len(body.Answers))
+
+		for i, ansDTO := range body.Answers {
+			ansID, err := s.AnswerRepo.CreateAnswer(ctx, tx, createdQuestionID, ansDTO.Text, ansDTO.IsCorrect)
+			if err != nil {
+				return err
+			}
+
+			answers[i] = entities.Answer{
+				ID: ansID,
+				QuestionID: createdQuestionID,
+				Text: ansDTO.Text,
+				IsCorrect: ansDTO.IsCorrect,
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return dto.QuestionResponse{}, err
 	}
 
-	return question, nil
+	question := entities.Question{
+		ID: createdQuestionID,
+		Text: body.Text,
+		QuizID: qID,
+	}
+
+	return dto.NewQuestionResponse(question, answers), nil
 }
 
-func (s *QuestionService) ListQuestions(ctx context.Context, quizID string)([]entities.QuestionAPI, error) {
+func (s *QuestionService) ListQuestions(ctx context.Context, quizID string)([]dto.QuestionResponse, error) {
 	qID, err := strconv.Atoi(quizID)
 	if err != nil {
-		return []entities.QuestionAPI{}, ErrInvalidIDFormat
+		return []dto.QuestionResponse{}, ErrInvalidIDFormat
 	}
 	questions, err := s.QuestionRepo.GetQuizQuestions(ctx, qID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return []entities.QuestionAPI{}, ErrQuestionNotFound
+			return []dto.QuestionResponse{}, ErrQuestionNotFound
 		}
-		return []entities.QuestionAPI{}, err
+		return []dto.QuestionResponse{}, err
 	}
-	return questions, nil
+	qIDs := make([]int, len(questions))
+	for i, q := range questions {
+		qIDs[i] = q.ID
+	}
+
+	answers, err := s.AnswerRepo.GetAnswersByQuestionIDs(ctx, qIDs)
+	answerMap := make(map[int][]entities.Answer)
+	for _, ans := range answers {
+		answerMap[ans.QuestionID] = append(answerMap[ans.QuestionID], ans)
+	}
+
+	response := make([]dto.QuestionResponse, len(questions))
+	for i, q := range questions {
+		currentAnswers := answerMap[q.ID]
+		response[i] = dto.NewQuestionResponse(q, currentAnswers)
+	}
+
+	return response, nil
 }
 
-func (s *QuestionService) GetQuestion(ctx context.Context, questionID string)(entities.QuestionAPI, error) {
+func (s *QuestionService) GetQuestion(ctx context.Context, questionID string)(dto.QuestionResponse, error) {
 	qID, err := strconv.Atoi(questionID)
 	if err != nil {
-		return entities.QuestionAPI{}, ErrInvalidIDFormat
+		return dto.QuestionResponse{}, ErrInvalidIDFormat
 	}
 	question, err := s.QuestionRepo.GetQuestion(ctx, qID);
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return entities.QuestionAPI{}, ErrQuestionNotFound
+			return dto.QuestionResponse{}, ErrQuestionNotFound
 		}
-		return entities.QuestionAPI{}, err
+		return dto.QuestionResponse{}, err
 	}
-	return question, nil
+
+	answers, err := s.AnswerRepo.GetQuizAnswers(ctx, qID)
+	if err != nil {
+		return dto.QuestionResponse{}, ErrAnswerNotFound
+	}
+
+	return dto.NewQuestionResponse(question, answers), nil
 }
 
-func (s *QuestionService) UpdateQuestion(ctx context.Context, questionID string, data dto.UpdateQuestionDTO, userID int) (entities.QuestionAPI ,error){
+func (s *QuestionService) UpdateQuestion(ctx context.Context, questionID string, data dto.UpdateQuestionDTO, userID int) (dto.QuestionResponse ,error){
 	qID, err := strconv.Atoi(questionID)
 	if err != nil {
-		return entities.QuestionAPI{}, ErrInvalidIDFormat
+		return dto.QuestionResponse{}, ErrInvalidIDFormat
 	}
 
 	isOwner, err := s.QuestionRepo.CheckIfQuestionOwner(ctx, qID, userID)
 	if err != nil {
-		return entities.QuestionAPI{}, err
+		return dto.QuestionResponse{}, err
 	}
 	if !isOwner {
-		return entities.QuestionAPI{}, ErrNotAnAuthor
+		return dto.QuestionResponse{}, ErrNotAnAuthor
 	}
 
 	question, err := s.QuestionRepo.UpdateQuestion(ctx, qID, data)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return entities.QuestionAPI{}, ErrQuestionNotFound
+			return dto.QuestionResponse{}, ErrQuestionNotFound
 		}
-		return entities.QuestionAPI{}, err
+		return dto.QuestionResponse{}, err
 	}
-	return question, nil
+
+	answers, err := s.AnswerRepo.GetQuizAnswers(ctx, qID)
+	if err != nil {
+		return dto.QuestionResponse{}, ErrAnswerNotFound
+	}
+
+	return dto.NewQuestionResponse(question, answers), nil
 }
 
 func (s *QuestionService) DeleteQuestion(ctx context.Context, questionID string, userID int) (error){

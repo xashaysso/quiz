@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"quiz/db/repositories"
-	APIentities "quiz/entities/api"
 	entities "quiz/entities/db"
 	"quiz/entities/dto"
 	"strconv"
@@ -59,39 +58,39 @@ func (s *AnswerService) ListAnswers(ctx context.Context, questionID string) ([]e
 	return answers, nil
 }
 
-func (s *AnswerService) CreateAnswer(ctx context.Context, questionID string, data dto.CreateAnswerDTO, userID int) (APIentities.AnswerAPI, error) {
+func (s *AnswerService) CreateAnswer(ctx context.Context, questionID string, data dto.CreateAnswerDTO, userID int) (dto.AnswerResponse, error) {
 	qID, err := strconv.Atoi(questionID);
 	if err != nil{
-		return APIentities.AnswerAPI{}, ErrInvalidIDFormat;
+		return dto.AnswerResponse{}, ErrInvalidIDFormat;
 	}
 
 	if data.Text == "" {
-		return APIentities.AnswerAPI{}, ErrInvalidAnswerText;
+		return dto.AnswerResponse{}, ErrInvalidAnswerText;
 	}
 
 	isOwner, err := s.AnswerRepo.CheckIfQuestionOwner(ctx, qID, userID)
 	if err != nil {
-		return APIentities.AnswerAPI{}, err
+		return dto.AnswerResponse{}, err
 	}
 	if !isOwner {
-		return APIentities.AnswerAPI{}, ErrNotAnAuthor
+		return dto.AnswerResponse{}, ErrNotAnAuthor
 	}
 
 	return s.AnswerRepo.CreateAnswer(ctx, qID, data)
 }
 
-func (s *AnswerService) GetAnswer(ctx context.Context, answerID string) (APIentities.AnswerAPI, error){
+func (s *AnswerService) GetAnswer(ctx context.Context, answerID string) (dto.AnswerResponse, error){
 	aID, err := strconv.Atoi(answerID)
 	if err != nil{
-		return APIentities.AnswerAPI{}, err;
+		return dto.AnswerResponse{}, err;
 	}
 
 	answer, err := s.AnswerRepo.GetAnswer(ctx, aID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return APIentities.AnswerAPI{}, ErrAnswerNotFound
+			return dto.AnswerResponse{}, ErrAnswerNotFound
 		}
-		return APIentities.AnswerAPI{}, err;
+		return dto.AnswerResponse{}, err;
 	}
 
 	return answer, nil
@@ -117,38 +116,38 @@ func(s *AnswerService) DeleteAnswer(ctx context.Context, answerID string, userID
 	return nil
 }
 
-func (s *AnswerService) UpdateAnswer(ctx context.Context, answerID string, data dto.UpdateAnswerDTO, userID int)(APIentities.AnswerAPI, error) {
+func (s *AnswerService) UpdateAnswer(ctx context.Context, answerID string, data dto.UpdateAnswerDTO, userID int)(dto.AnswerResponse, error) {
 	aID, err := strconv.Atoi(answerID)
 	if err != nil {
-		return APIentities.AnswerAPI{}, ErrInvalidIDFormat
+		return dto.AnswerResponse{}, ErrInvalidIDFormat
 	}
 	if data.Text == nil && data.NewCorrectID == nil{
-		return APIentities.AnswerAPI{}, ErrNoFieldsToUpdate;
+		return dto.AnswerResponse{}, ErrNoFieldsToUpdate;
 	}
 
 	isOwner, err := s.AnswerRepo.CheckIfAnswerOwner(ctx, aID, userID)
 	if err != nil {
-		return APIentities.AnswerAPI{}, err
+		return dto.AnswerResponse{}, err
 	}
 	if !isOwner {
-		return APIentities.AnswerAPI{}, ErrNotAnAuthor
+		return dto.AnswerResponse{}, ErrNotAnAuthor
 	}
 
 	answer, err := s.AnswerRepo.UpdateAnswer(ctx, aID, data)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-			return APIentities.AnswerAPI{}, ErrAnswerNotFound
+			return dto.AnswerResponse{}, ErrAnswerNotFound
 		}
 
 		// TODO: FIX THIS
 		errMsg := err.Error();
 			if strings.Contains(errMsg, "not found"){
-				return APIentities.AnswerAPI{}, ErrAnswerNotFound;
+				return dto.AnswerResponse{}, ErrAnswerNotFound;
 			}
 			if strings.Contains(errMsg, "new correct answer id"){
-				return APIentities.AnswerAPI{}, ErrInvalidCorrectID;
+				return dto.AnswerResponse{}, ErrInvalidCorrectID;
 			}
-		return APIentities.AnswerAPI{}, err
+		return dto.AnswerResponse{}, err
 	}
 
 	return answer, nil

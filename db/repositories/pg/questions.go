@@ -3,10 +3,10 @@ package pg
 import (
 	"context"
 	"fmt"
-	APIentities "quiz/entities/api"
+	entities "quiz/entities/db"
 	"quiz/entities/dto"
 
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -22,153 +22,64 @@ func NewQuestionRepo (p *pgxpool.Pool) *PgQuestionRepo{
 
 // repo methods
 
-func (r *PgQuestionRepo) GetQuizQuestions(ctx context.Context, id int) ([]APIentities.QuestionAPI, error) {
-	rows, err := r.Pool.Query(ctx, `SELECT q.id AS question_id, q.text AS question_text, a.id AS answer_id, a.text AS answer_id, a.correct
-								FROM questions q JOIN answers a	ON q.id = a.question_id WHERE q.quiz_id = $1 ORDER BY q.id, a.id`, id)
+func (r *PgQuestionRepo) GetQuizQuestions(ctx context.Context, id int) ([]entities.Question, error) {
+	rows, err := r.Pool.Query(ctx, `SELECT id, text, quiz_id FROM questions WHERE quiz_id = $1`, id)
 	if rows.Err() != nil {
 		return nil, err
 	}
 	defer rows.Close();
 
-	var questionMap = make(map[int]APIentities.QuestionAPI);
-	var orderedQuestionIDs []int;
+	var questions []entities.Question
 
 	for rows.Next() {
-		var qID, aID int;
-		var correct bool;
-		var qText, aText string;
-
-
-		err := rows.Scan(&qID, &qText, &aID, &aText, &correct);
-		if err != nil {
-			return nil, err
+		var q entities.Question
+		if err := rows.Scan(&q.ID, &q.Text, &q.QuizID); err != nil {
+			return nil, err;
 		}
-
-		question, exists := questionMap[qID];
-		if !exists{
-			question = APIentities.QuestionAPI{
-				ID: qID,
-				Text: qText,
-				Answers: []APIentities.AnswerAPI{},
-			}
-			orderedQuestionIDs = append(orderedQuestionIDs, qID);
-		}
-
-		answer := APIentities.AnswerAPI{
-			ID: aID,
-			Text: aText,
-			IsCorrect: correct,
-		}
-		question.Answers = append(question.Answers, answer);
-
-		questionMap[qID] = question;
+		questions = append(questions, q)
 	}
 
-	result := make([]APIentities.QuestionAPI, 0, len(questionMap));
-	for _, id := range orderedQuestionIDs {
-		result = append(result, questionMap[id]);
-	}
-
-	return result, nil
+	return questions, nil
 }
 
 
-func (r *PgQuestionRepo) CreateQuestion(ctx context.Context, quizID int, data dto.CreateQuestionDTO)(APIentities.QuestionAPI, error){
-	tx, err := r.Pool.Begin(ctx);
-	if err != nil{
-		return APIentities.QuestionAPI{}, err;
-	}
-	defer tx.Rollback(ctx);
-
+func (r *PgQuestionRepo) CreateQuestion(ctx context.Context, tx pgx.Tx, quizID int, data dto.CreateQuestionDTO)(int, error){
 	var questionID int;
 
-	err = tx.QueryRow(ctx, `INSERT INTO questions (quiz_id, text) VALUES ($1, $2) RETURNING id`, quizID, data.Text).Scan(&questionID);
+	err := tx.QueryRow(ctx, `INSERT INTO questions (quiz_id, text) VALUES ($1, $2) RETURNING id`, quizID, data.Text).Scan(&questionID);
 	if err != nil{
-		if pgErr, ok := err.(*pgconn.PgError); ok {
-            if pgErr.Code == "23503" { 
-                return APIentities.QuestionAPI{}, fmt.Errorf("quiz with id = %d not found", quizID)
-            }
-        }
-		return APIentities.QuestionAPI{}, err;
+		return -1, err;
 	}
 
-	answerIDs := make([]int, len(data.Answers));
-
-	for i, answer := range data.Answers {
-		var answerID int;
-		
-		err = tx.QueryRow(ctx, `INSERT INTO answers (question_id, text, correct) VALUES ($1, $2, $3) RETURNING id`, questionID, answer.Text, answer.IsCorrect).Scan(&answerID);
-		if err != nil{
-			return APIentities.QuestionAPI{}, err;
-		}
-
-		answerIDs[i] = answerID;
-	}
-
-	err = tx.Commit(ctx);
-	if err != nil{
-		return APIentities.QuestionAPI{}, err;
-	}
-
-	var resData APIentities.QuestionAPI;
-
-	resData.ID = questionID;
-	resData.Text = data.Text;
-	resData.Answers = make([]APIentities.AnswerAPI, len(data.Answers));
-
-	for i := range data.Answers{
-		resData.Answers[i].ID = answerIDs[i];
-		resData.Answers[i].IsCorrect = data.Answers[i].IsCorrect;
-		resData.Answers[i].Text = data.Answers[i].Text;
-	}
-
-	return resData, nil;
+	return questionID, nil
 }
 
-func (r *PgQuestionRepo) GetQuestion(ctx context.Context, questionID int)(APIentities.QuestionAPI, error){
-	var question APIentities.QuestionAPI;
-	questionAnswers := []APIentities.AnswerAPI{};
+func (r *PgQuestionRepo) GetQuestion(ctx context.Context, questionID int)(entities.Question, error){
+	var question entities.Question;
 
-	err := r.Pool.QueryRow(ctx, `SELECT id, text FROM questions WHERE id = $1 ORDER BY id`, questionID).Scan(&question.ID, &question.Text);
+	err := r.Pool.QueryRow(ctx, `SELECT id, text, quiz_id FROM questions WHERE id = $1 ORDER BY id`, questionID).Scan(&question.ID, &question.Text, &question.QuizID);
 	if err != nil{
-		return APIentities.QuestionAPI{}, err;
+		return entities.Question{}, err;
 	}
-
-	rows, err := r.Pool.Query(ctx, `SELECT id, text, correct FROM answers WHERE question_id = $1 ORDER BY id`, questionID);
-	if err != nil{
-		return APIentities.QuestionAPI{}, nil;
-	}
-	defer rows.Close();
-
-	for rows.Next(){
-		var answer APIentities.AnswerAPI;
-		err = rows.Scan(&answer.ID, &answer.Text, &answer.IsCorrect);
-		if err != nil{
-			return APIentities.QuestionAPI{}, nil;
-		}
-
-		questionAnswers = append(questionAnswers, answer);
-	}
-	question.Answers = questionAnswers;
 
 	return question, nil;
 }
 
-func (r *PgQuestionRepo) UpdateQuestion(ctx context.Context, questionID int, data dto.UpdateQuestionDTO)(APIentities.QuestionAPI, error){
+func (r *PgQuestionRepo) UpdateQuestion(ctx context.Context, questionID int, data dto.UpdateQuestionDTO)(entities.Question, error){
 	tx, err := r.Pool.Begin(ctx);
 	if err != nil{
-		return APIentities.QuestionAPI{}, err;
+		return entities.Question{}, err;
 	}
 
 	defer tx.Rollback(ctx);
 
 	if data.Text != nil{
-		tag, err := r.Pool.Exec(ctx, `UPDATE questions SET text = $1 WHERE id = $2`, *data.Text, questionID)
+		tag, err := tx.Exec(ctx, `UPDATE questions SET text = $1 WHERE id = $2`, *data.Text, questionID)
 		if err != nil{
-			return APIentities.QuestionAPI{}, err;
+			return entities.Question{}, err;
 		}
 		if tag.RowsAffected() == 0{
-			return APIentities.QuestionAPI{}, fmt.Errorf("question ID %d not found", questionID);
+			return entities.Question{}, fmt.Errorf("question ID %d not found", questionID);
 		}
 	}
 
@@ -177,20 +88,20 @@ func (r *PgQuestionRepo) UpdateQuestion(ctx context.Context, questionID int, dat
 
 		_, err = tx.Exec(ctx, `UPDATE answers SET correct = FALSE WHERE question_id = $1`, questionID);
 		if err != nil{
-			return APIentities.QuestionAPI{}, fmt.Errorf("failed to reset correct flag: %w", err);
+			return entities.Question{}, fmt.Errorf("failed to reset correct flag: %w", err);
 		}
 
 		tag, err := tx.Exec(ctx, `UPDATE answers SET correct = TRUE WHERE id = $1`, newCorrectID);
 		if err != nil{
-			return APIentities.QuestionAPI{}, fmt.Errorf("failed to set new correct flag: %w", err);
+			return entities.Question{}, fmt.Errorf("failed to set new correct flag: %w", err);
 		}
 		if tag.RowsAffected() == 0{
-			return APIentities.QuestionAPI{}, fmt.Errorf("answer ID %d not found", newCorrectID);
+			return entities.Question{}, fmt.Errorf("answer ID %d not found", newCorrectID);
 		}
 	}
 
 	if err = tx.Commit(ctx); err != nil{
-		return APIentities.QuestionAPI{}, err;
+		return entities.Question{}, err;
 	}
 
 	return r.GetQuestion(ctx, questionID);
