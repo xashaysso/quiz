@@ -11,18 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-var (
-	ErrQuizNotFound = errors.New("quiz not found")
-	ErrNotAnAuthor = errors.New("you are not an author of this quiz")
-	ErrInvalidName = errors.New("quiz name is too short")
-	ErrNoRequiredFields = errors.New("fields name/description are required in json body")
-)
-
 type QuizService struct {
 	QuizRepo repositories.QuizRepository
 }
 
-func (s *QuizService) checkIfAuthor(ctx context.Context, quizID int, userID int) (error) {
+func (s *QuizService) checkIfAuthor(ctx context.Context, quizID int, userID int) error {
 	quiz, err := s.QuizRepo.GetQuizByID(ctx, quizID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
@@ -44,7 +37,7 @@ func (s *QuizService) ListQuizzes(ctx context.Context) ([]entities.Quiz, error) 
 	return quizzes, nil
 }
 
-func (s *QuizService) DeleteQuiz(ctx context.Context, quizID string, userID int)(error) {
+func (s *QuizService) DeleteQuiz(ctx context.Context, quizID string, userID int) error {
 	qID, err := strconv.Atoi(quizID)
 	if err != nil {
 		return ErrInvalidIDFormat
@@ -56,23 +49,23 @@ func (s *QuizService) DeleteQuiz(ctx context.Context, quizID string, userID int)
 	return s.QuizRepo.DeleteQuiz(ctx, qID)
 }
 
-func (s *QuizService) CreateQuiz(ctx context.Context, name, description string, userID int) (entities.Quiz, error){
+func (s *QuizService) CreateQuiz(ctx context.Context, name, description string, userID int) (entities.Quiz, error) {
 	if len(name) < 5 {
 		return entities.Quiz{}, ErrInvalidName
 	}
-	newQuiz, err := s.QuizRepo.CreateQuiz(ctx, name, description, userID);
+	newQuiz, err := s.QuizRepo.CreateQuiz(ctx, name, description, userID)
 	if err != nil {
 		return entities.Quiz{}, err
 	}
 	return newQuiz, nil
 }
 
-func (s *QuizService) UpdateQuiz(ctx context.Context, quizID string, name, description *string, userID int) (entities.Quiz, error){
+func (s *QuizService) UpdateQuiz(ctx context.Context, quizID string, name, description *string, userID int) (entities.Quiz, error) {
 	qID, err := strconv.Atoi(quizID)
 	if err != nil {
 		return entities.Quiz{}, ErrInvalidIDFormat
 	}
-	if name == nil && description == nil{
+	if name == nil && description == nil {
 		return entities.Quiz{}, ErrNoRequiredFields
 	}
 	err = s.checkIfAuthor(ctx, qID, userID)
@@ -80,5 +73,5 @@ func (s *QuizService) UpdateQuiz(ctx context.Context, quizID string, name, descr
 		return entities.Quiz{}, err
 	}
 
-	return s.QuizRepo.UpdateQuiz(ctx, qID, name, description);
+	return s.QuizRepo.UpdateQuiz(ctx, qID, name, description)
 }

@@ -12,7 +12,7 @@ type PgTxManager struct {
 }
 
 func NewPgTxManager(pool *pgxpool.Pool) *PgTxManager {
-    return &PgTxManager{Pool: pool}
+	return &PgTxManager{Pool: pool}
 }
 
 func (m *PgTxManager) WithinTransaction(ctx context.Context, fn func(tx pgx.Tx) error) error {

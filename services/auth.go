@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"quiz/db/repositories"
 	entities "quiz/entities/db"
 	"time"
@@ -12,19 +11,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	ErrInvalidUsername = errors.New("username is too short")
-	ErrInvalidPassword = errors.New("password is too short")
-	ErrWrongCredentials = errors.New("wrong username or password")
-	ErrUserAlreadyExists = errors.New("user already exists")
-)
-
 type AuthService struct {
-	UserRepo repositories.UserRepository
+	UserRepo    repositories.UserRepository
 	SessionRepo repositories.SessionRepository
 }
 
-func (s *AuthService) Register(ctx context.Context, username, password string) (entities.User, string, error){
+func (s *AuthService) Register(ctx context.Context, username, password string) (entities.User, string, error) {
 	if len(username) < 3 {
 		return entities.User{}, "", ErrInvalidUsername
 	}
@@ -39,11 +31,11 @@ func (s *AuthService) Register(ctx context.Context, username, password string) (
 
 	user, err := s.UserRepo.CreateUser(ctx, username, string(hash))
 	if err != nil {
-		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505"{
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
 			return entities.User{}, "", ErrUserAlreadyExists
-        }
+		}
 		return entities.User{}, "", err
-    }
+	}
 
 	token, err := s.Login(ctx, username, password)
 	if err != nil {
@@ -59,7 +51,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 		return "", ErrWrongCredentials
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password) )
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	if err != nil {
 		return "", ErrWrongCredentials
 	}
@@ -74,11 +66,10 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 	return token, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, token string) (error) {
+func (s *AuthService) Logout(ctx context.Context, token string) error {
 	err := s.SessionRepo.Delete(ctx, token)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-

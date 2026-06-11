@@ -47,12 +47,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	h.setAuthCookie(c, token)
 
 	newUser := dto.RegisterResponse{
-		ID: user.ID,
-		Username: user.Username,
+		ID:        user.ID,
+		Username:  user.Username,
 		CreatedAt: user.CreatedAt,
 	}
 	c.JSON(http.StatusCreated, gin.H{
-		"user": newUser,
+		"user":  newUser,
 		"token": token,
 	})
 }
@@ -85,7 +85,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	h.setAuthCookie(c, token)
 
 	c.JSON(http.StatusOK, gin.H{
-		"token": token,
+		"token":   token,
 		"message": "successfully logged in",
 	})
 }
@@ -113,6 +113,6 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 }
 
 // helper method
-func (h* AuthHandler) setAuthCookie(c *gin.Context, token string) {
+func (h *AuthHandler) setAuthCookie(c *gin.Context, token string) {
 	c.SetCookie("token", token, 3600*24, "/", "", false, true)
 }

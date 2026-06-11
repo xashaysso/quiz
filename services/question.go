@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"quiz/db/repositories"
 	entities "quiz/entities/db"
@@ -12,19 +11,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-var (
-	ErrInvalidIDFormat = errors.New("invalid 'ID' field format")
-	ErrNoQuestionAnswers = errors.New("no field 'answers' provided in json")
-	ErrQuestionNotFound = errors.New("question not found")
-)
-
 type QuestionService struct {
 	QuestionRepo repositories.QuestionRepository
-	AnswerRepo repositories.AnswerRepository
-	TxManager repositories.TransactionManager
+	AnswerRepo   repositories.AnswerRepository
+	TxManager    repositories.TransactionManager
 }
 
-func (s *QuestionService) CreateQuestion (ctx context.Context, quizID string, body dto.CreateQuestionDTO, userID int) (dto.QuestionResponse, error){
+func (s *QuestionService) CreateQuestion(ctx context.Context, quizID string, body dto.CreateQuestionDTO, userID int) (dto.QuestionResponse, error) {
 	if len(body.Answers) == 0 {
 		return dto.QuestionResponse{}, ErrNoQuestionAnswers
 	}
@@ -44,10 +37,10 @@ func (s *QuestionService) CreateQuestion (ctx context.Context, quizID string, bo
 	var createdQuestionID int
 	var answers []entities.Answer
 
-	err = s.TxManager.WithinTransaction(ctx, func(tx pgx.Tx) error{
+	err = s.TxManager.WithinTransaction(ctx, func(tx pgx.Tx) error {
 		id, err := s.QuestionRepo.CreateQuestion(ctx, tx, qID, body)
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			if errors.Is(err, repositories.ErrRecordNotFound) {
 				return ErrQuizNotFound
 			}
 			return err
@@ -64,10 +57,10 @@ func (s *QuestionService) CreateQuestion (ctx context.Context, quizID string, bo
 			}
 
 			answers[i] = entities.Answer{
-				ID: ansID,
+				ID:         ansID,
 				QuestionID: createdQuestionID,
-				Text: ansDTO.Text,
-				IsCorrect: ansDTO.IsCorrect,
+				Text:       ansDTO.Text,
+				IsCorrect:  ansDTO.IsCorrect,
 			}
 		}
 
@@ -78,22 +71,22 @@ func (s *QuestionService) CreateQuestion (ctx context.Context, quizID string, bo
 	}
 
 	question := entities.Question{
-		ID: createdQuestionID,
-		Text: body.Text,
+		ID:     createdQuestionID,
+		Text:   body.Text,
 		QuizID: qID,
 	}
 
 	return dto.NewQuestionResponse(question, answers), nil
 }
 
-func (s *QuestionService) ListQuestions(ctx context.Context, quizID string)([]dto.QuestionResponse, error) {
+func (s *QuestionService) ListQuestions(ctx context.Context, quizID string) ([]dto.QuestionResponse, error) {
 	qID, err := strconv.Atoi(quizID)
 	if err != nil {
 		return []dto.QuestionResponse{}, ErrInvalidIDFormat
 	}
 	questions, err := s.QuestionRepo.GetQuizQuestions(ctx, qID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, repositories.ErrRecordNotFound) {
 			return []dto.QuestionResponse{}, ErrQuestionNotFound
 		}
 		return []dto.QuestionResponse{}, err
@@ -118,14 +111,14 @@ func (s *QuestionService) ListQuestions(ctx context.Context, quizID string)([]dt
 	return response, nil
 }
 
-func (s *QuestionService) GetQuestion(ctx context.Context, questionID string)(dto.QuestionResponse, error) {
+func (s *QuestionService) GetQuestion(ctx context.Context, questionID string) (dto.QuestionResponse, error) {
 	qID, err := strconv.Atoi(questionID)
 	if err != nil {
 		return dto.QuestionResponse{}, ErrInvalidIDFormat
 	}
-	question, err := s.QuestionRepo.GetQuestion(ctx, qID);
+	question, err := s.QuestionRepo.GetQuestion(ctx, qID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, repositories.ErrRecordNotFound) {
 			return dto.QuestionResponse{}, ErrQuestionNotFound
 		}
 		return dto.QuestionResponse{}, err
@@ -139,7 +132,7 @@ func (s *QuestionService) GetQuestion(ctx context.Context, questionID string)(dt
 	return dto.NewQuestionResponse(question, answers), nil
 }
 
-func (s *QuestionService) UpdateQuestion(ctx context.Context, questionID string, data dto.UpdateQuestionDTO, userID int) (dto.QuestionResponse ,error){
+func (s *QuestionService) UpdateQuestion(ctx context.Context, questionID string, data dto.UpdateQuestionDTO, userID int) (dto.QuestionResponse, error) {
 	qID, err := strconv.Atoi(questionID)
 	if err != nil {
 		return dto.QuestionResponse{}, ErrInvalidIDFormat
@@ -156,7 +149,7 @@ func (s *QuestionService) UpdateQuestion(ctx context.Context, questionID string,
 	question, err := s.QuestionRepo.UpdateQuestion(ctx, qID, data)
 
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, repositories.ErrRecordNotFound) {
 			return dto.QuestionResponse{}, ErrQuestionNotFound
 		}
 		return dto.QuestionResponse{}, err
@@ -170,7 +163,7 @@ func (s *QuestionService) UpdateQuestion(ctx context.Context, questionID string,
 	return dto.NewQuestionResponse(question, answers), nil
 }
 
-func (s *QuestionService) DeleteQuestion(ctx context.Context, questionID string, userID int) (error){
+func (s *QuestionService) DeleteQuestion(ctx context.Context, questionID string, userID int) error {
 	qID, err := strconv.Atoi(questionID)
 	if err != nil {
 		return ErrInvalidIDFormat
@@ -187,7 +180,7 @@ func (s *QuestionService) DeleteQuestion(ctx context.Context, questionID string,
 	err = s.QuestionRepo.DeleteQuestion(ctx, qID)
 
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, repositories.ErrRecordNotFound) {
 			return ErrQuestionNotFound
 		}
 		return err

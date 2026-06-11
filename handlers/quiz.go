@@ -17,66 +17,66 @@ func (h *QuizHandler) ListQuizzes(c *gin.Context) {
 	quizzes, err := h.QuizService.ListQuizzes(ctx)
 	if err != nil {
 		HandleError(c, err)
-		return;
+		return
 	}
-	c.JSON(http.StatusOK, quizzes);
+	c.JSON(http.StatusOK, quizzes)
 }
 
-func (h *QuizHandler) DeleteQuiz(c *gin.Context){
+func (h *QuizHandler) DeleteQuiz(c *gin.Context) {
 	ctx := c.Request.Context()
 	quizID := c.Param("quiz_id")
 	userID := c.MustGet("userID").(int)
 
 	err := h.QuizService.DeleteQuiz(ctx, quizID, userID)
-	if err != nil{
+	if err != nil {
 		HandleError(c, err)
 		return
 	}
-	c.Status(http.StatusNoContent);
+	c.Status(http.StatusNoContent)
 }
 
-func (h *QuizHandler) CreateQuiz(c *gin.Context){
+func (h *QuizHandler) CreateQuiz(c *gin.Context) {
 	ctx := c.Request.Context()
-	var body dto.CreateQuizDTO;
+	var body dto.CreateQuizDTO
 
-	if err := c.ShouldBindJSON(&body); err != nil{
+	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "invalid json",
 		})
-		return;
+		return
 	}
-	
+
 	// middleware guarantees userID of type int there
 	userID := c.MustGet("userID").(int)
 
 	newQuiz, err := h.QuizService.CreateQuiz(ctx, body.Name, body.Description, userID)
-	if err != nil{
+	if err != nil {
 		HandleError(c, err)
-		return;
+		return
 	}
-	c.JSON(http.StatusCreated, newQuiz);
+	c.JSON(http.StatusCreated, newQuiz)
 }
 
-func (h *QuizHandler) UpdateQuiz(c *gin.Context){
+func (h *QuizHandler) UpdateQuiz(c *gin.Context) {
 	ctx := c.Request.Context()
-	quizID := c.Param("quiz_id");
+	quizID := c.Param("quiz_id")
 
 	userID := c.MustGet("userID").(int)
 
-	var body dto.UpdateQuizDTO;
+	var body dto.UpdateQuizDTO
 
-	if err := c.ShouldBindJSON(&body); err != nil{
+	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "invalid json",
 		})
-		return;
+		return
 	}
 
-	newQuiz, err := h.QuizService.UpdateQuiz(ctx, quizID, body.Name, body.Description, userID);
-	if err != nil{
+	newQuiz, err := h.QuizService.UpdateQuiz(ctx, quizID, body.Name, body.Description, userID)
+	if err != nil {
 		HandleError(c, err)
-		return;
+		return
 	}
 
-	c.JSON(http.StatusOK, newQuiz);
+	c.JSON(http.StatusOK, newQuiz)
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AuthMiddleware(repo repositories.SessionRepository) gin.HandlerFunc{
+func AuthMiddleware(repo repositories.SessionRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 		token, err := c.Cookie("token")

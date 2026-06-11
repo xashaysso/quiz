@@ -25,7 +25,6 @@ func main() {
 	PORT := os.Getenv("PORT")
 	REDIS_ADDR := os.Getenv("REDIS_ADDR")
 
-
 	// postgre init
 	globalPool := db.Serve()
 	defer globalPool.Close()
@@ -48,12 +47,12 @@ func main() {
 	answerH := &handlers.AnswerHandler{AnswerService: answerService}
 
 	// redis init
-	rdb := db.NewRedisClient(REDIS_ADDR);
+	rdb := db.NewRedisClient(REDIS_ADDR)
 
 	sessionRepo := redis.NewSessionRepository(rdb)
 
 	authService := &services.AuthService{
-		UserRepo: userRepo,
+		UserRepo:    userRepo,
 		SessionRepo: sessionRepo,
 	}
 
@@ -107,4 +106,3 @@ func main() {
 
 	router.Run(PORT)
 }
-

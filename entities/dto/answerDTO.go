@@ -1,5 +1,7 @@
 package dto
 
+import entities "quiz/entities/db"
+
 type CreateAnswerDTO struct {
 	Text      string `json:"text"`
 	IsCorrect bool   `json:"is_correct"`
@@ -14,8 +16,16 @@ type CheckAnswerDTO struct {
 	AnswerID int `json:"answer_id"`
 }
 
-type AnswerResponse struct {
-	ID        int    `json:"id"`
-	Text      string `json:"text"`
-	IsCorrect bool   `json:"is_correct"`
+type AnswerPublicResponse struct {
+	ID         int    `json:"id"`
+	QuestionID int    `json:"question_id"`
+	Text       string `json:"text"`
+}
+
+func NewAnswerResponse(a entities.Answer) AnswerPublicResponse {
+	return AnswerPublicResponse{
+		ID:         a.ID,
+		QuestionID: a.QuestionID,
+		Text:       a.Text,
+	}
 }

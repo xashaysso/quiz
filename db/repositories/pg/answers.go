@@ -2,7 +2,9 @@ package pg
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"quiz/db/repositories"
 	entities "quiz/entities/db"
 	"quiz/entities/dto"
 
@@ -16,7 +18,7 @@ type PgAnswerRepo struct {
 	Pool *pgxpool.Pool
 }
 
-func NewAnswerRepo (p *pgxpool.Pool) *PgAnswerRepo{
+func NewAnswerRepo(p *pgxpool.Pool) *PgAnswerRepo {
 	return &PgAnswerRepo{Pool: p}
 }
 
@@ -24,7 +26,7 @@ func NewAnswerRepo (p *pgxpool.Pool) *PgAnswerRepo{
 
 func (r *PgAnswerRepo) GetQuizAnswers(ctx context.Context, questionID int) ([]entities.Answer, error) {
 	var answerList []entities.Answer
-	rows, err := r.Pool.Query(ctx, `SELECT id, text FROM answers WHERE question_id = $1`, questionID)
+	rows, err := r.Pool.Query(ctx, `SELECT id, text, correct, question_id FROM answers WHERE question_id = $1`, questionID)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +34,7 @@ func (r *PgAnswerRepo) GetQuizAnswers(ctx context.Context, questionID int) ([]en
 
 	for rows.Next() {
 		var answer entities.Answer
-		err := rows.Scan(&answer.ID, &answer.Text)
+		err := rows.Scan(&answer.ID, &answer.Text, &answer.IsCorrect, &answer.QuestionID)
 		if err != nil {
 			return nil, err
 		}
@@ -44,103 +46,105 @@ func (r *PgAnswerRepo) GetQuizAnswers(ctx context.Context, questionID int) ([]en
 func (r *PgAnswerRepo) CheckAnswer(ctx context.Context, questionID int, answerID int) (bool, error) {
 	var isCorrect bool
 
-	err := r.Pool.QueryRow(ctx, `SELECT correct FROM answers WHERE id = $1`, answerID).Scan(&isCorrect)
+	err := r.Pool.QueryRow(ctx, `SELECT correct FROM answers WHERE id = $1 AND question_id = $2`, answerID, questionID).Scan(&isCorrect)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, repositories.ErrRecordNotFound
+		}
 		return false, err
 	}
 	return isCorrect, nil
 }
 
-func (r *PgAnswerRepo) CreateAnswer(ctx context.Context, tx pgx.Tx, questionID int, text string, isCorrect bool)(int, error) {
+func (r *PgAnswerRepo) CreateAnswer(ctx context.Context, txAny any, questionID int, text string, isCorrect bool) (int, error) {
+	tx, ok := txAny.(pgx.Tx)
+	if !ok {
+		return -1, fmt.Errorf("invalid transaction type: expected pgx.Tx, got %T", txAny)
+	}
+
 	if isCorrect {
-		_, err := tx.Exec(ctx, `UPDATE answers SET correct = FALSE WHERE question_id = $1`, questionID);
-		if err != nil{
+		_, err := tx.Exec(ctx, `UPDATE answers SET correct = FALSE WHERE question_id = $1`, questionID)
+		if err != nil {
 			return -1, err
 		}
 	}
 
 	var id int
 	err := tx.QueryRow(ctx, `INSERT INTO answers (text, correct, question_id) 
-						VALUES ($1, $2, $3) returning id`, text, isCorrect, questionID).Scan(&id);
-	if err != nil{
+						VALUES ($1, $2, $3) returning id`, text, isCorrect, questionID).Scan(&id)
+	if err != nil {
 		return -1, err
 	}
 
 	return id, nil
 }
 
-func (r *PgAnswerRepo) GetAnswer(ctx context.Context, answerID int)(dto.AnswerResponse, error){
-	var answer dto.AnswerResponse;
-	err := r.Pool.QueryRow(ctx, `SELECT id, text, correct FROM answers WHERE id = $1 ORDER BY id`, answerID).Scan(&answer.ID, &answer.Text, &answer.IsCorrect);
-	
-	if err == pgx.ErrNoRows {
-		return dto.AnswerResponse{}, fmt.Errorf("answer with id %d not found", answerID);
-	}
-	if err != nil{
-		return dto.AnswerResponse{}, err;
-	}
+func (r *PgAnswerRepo) GetAnswer(ctx context.Context, answerID int) (entities.Answer, error) {
+	var answer entities.Answer
+	err := r.Pool.QueryRow(ctx, `SELECT id, text, correct, question_id FROM answers WHERE id = $1 ORDER BY id`, answerID).Scan(&answer.ID, &answer.Text, &answer.IsCorrect, &answer.QuestionID)
 
-	return answer, nil;
-}
-
-func (r *PgAnswerRepo) DeleteAnswer(ctx context.Context, answerID int)(error){
-	cmdTag, err := r.Pool.Exec(ctx, `DELETE FROM answers WHERE id = $1`, answerID);
-	if err != nil{
-		return err;
-	}
-	if cmdTag.RowsAffected() == 0{
-		return fmt.Errorf("no answer with id %d found", answerID);
-	}
-
-	return nil;
-}
-
-func (r *PgAnswerRepo) UpdateAnswer(ctx context.Context, answerID int, data dto.UpdateAnswerDTO)(dto.AnswerResponse, error){
-	tx, err := r.Pool.Begin(ctx);
-	if err != nil{
-		return dto.AnswerResponse{}, err;
-	}
-	defer tx.Rollback(ctx);
-
-	var questionID int;
-	err = tx.QueryRow(ctx, `SELECT question_id FROM answers WHERE id = $1`, answerID).Scan(&questionID);
-	if err == pgx.ErrNoRows{
-		return dto.AnswerResponse{}, fmt.Errorf("answer with id %d not found", answerID);
-	}
-	if err != nil{
-		return dto.AnswerResponse{}, err;
-	}
-
-	if data.Text != nil{
-		tag, err := tx.Exec(ctx, `UPDATE answers SET text = $1 WHERE id = $2`, *data.Text, answerID);
-		if err != nil{
-			return dto.AnswerResponse{}, err;
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entities.Answer{}, repositories.ErrRecordNotFound
 		}
-		if tag.RowsAffected() == 0{
-			return dto.AnswerResponse{}, fmt.Errorf("answer with id %d not found", answerID);
+		return entities.Answer{}, err
+	}
+
+	return answer, nil
+}
+
+func (r *PgAnswerRepo) DeleteAnswer(ctx context.Context, answerID int) error {
+	cmdTag, err := r.Pool.Exec(ctx, `DELETE FROM answers WHERE id = $1`, answerID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return repositories.ErrRecordNotFound
+	}
+
+	return nil
+}
+
+func (r *PgAnswerRepo) UpdateAnswer(ctx context.Context, answerID int, data dto.UpdateAnswerDTO) (entities.Answer, error) {
+	tx, err := r.Pool.Begin(ctx)
+	if err != nil {
+		return entities.Answer{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	var questionID int
+	err = tx.QueryRow(ctx, `SELECT question_id FROM answers WHERE id = $1`, answerID).Scan(&questionID)
+	if err != nil {
+		return entities.Answer{}, err
+	}
+
+	if data.Text != nil {
+		_, err := tx.Exec(ctx, `UPDATE answers SET text = $1 WHERE id = $2`, *data.Text, answerID)
+		if err != nil {
+			return entities.Answer{}, err
 		}
 	}
 
 	if data.NewCorrectID != nil {
-		_, err := tx.Exec(ctx, `UPDATE answers SET correct = FALSE WHERE question_id = $1`, questionID);
-		if err != nil{
-			return dto.AnswerResponse{}, fmt.Errorf("failed to reset correct flag: %w", err);
+		_, err := tx.Exec(ctx, `UPDATE answers SET correct = FALSE WHERE question_id = $1 AND correct = TRUE`, questionID)
+		if err != nil {
+			return entities.Answer{}, err
 		}
 
-		tag, err := tx.Exec(ctx, `UPDATE answers SET correct = TRUE WHERE id = $1 AND question_id = $2`, *data.NewCorrectID, questionID);
-		if err != nil{
-			return dto.AnswerResponse{}, fmt.Errorf("failed to set new correct flag: %w", err);
+		tag, err := tx.Exec(ctx, `UPDATE answers SET correct = TRUE WHERE id = $1 AND question_id = $2`, *data.NewCorrectID, questionID)
+		if err != nil {
+			return entities.Answer{}, err
 		}
-		if tag.RowsAffected() == 0{
-			return dto.AnswerResponse{}, fmt.Errorf("new correct answer id %d belongs to another question", *data.NewCorrectID);
+		if tag.RowsAffected() == 0 {
+			return entities.Answer{}, repositories.ErrInvalidCorrectID
 		}
 	}
 
-	if err := tx.Commit(ctx); err != nil{
-		return dto.AnswerResponse{}, err;
+	if err := tx.Commit(ctx); err != nil {
+		return entities.Answer{}, err
 	}
 
-	return r.GetAnswer(ctx, answerID);
+	return r.GetAnswer(ctx, answerID)
 }
 
 func (r *PgAnswerRepo) CheckIfAnswerOwner(ctx context.Context, answerID int, userID int) (bool, error) {
@@ -172,7 +176,7 @@ func (r *PgAnswerRepo) CheckIfQuestionOwner(ctx context.Context, questionID int,
 	return isOwner, nil
 }
 
-func (r *PgAnswerRepo) GetAnswersByQuestionIDs(ctx context.Context, questionIDs []int)([]entities.Answer, error) {
+func (r *PgAnswerRepo) GetAnswersByQuestionIDs(ctx context.Context, questionIDs []int) ([]entities.Answer, error) {
 	if len(questionIDs) == 0 {
 		return []entities.Answer{}, nil
 	}
@@ -193,6 +197,6 @@ func (r *PgAnswerRepo) GetAnswersByQuestionIDs(ctx context.Context, questionIDs 
 
 		answers = append(answers, a)
 	}
-	
+
 	return answers, nil
 }

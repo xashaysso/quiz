@@ -13,114 +13,113 @@ type AnswerHandler struct {
 }
 
 func (h *AnswerHandler) CheckAnswer(c *gin.Context) {
-		ctx := c.Request.Context()
+	ctx := c.Request.Context()
 
-		var body dto.CheckAnswerDTO;
-		if err := c.ShouldBindJSON(&body); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid json",
-			})
-			return
-		}
-
-		questionID := c.Param("question_id")
-
-		correct, err := h.AnswerService.CheckAnswer(ctx, questionID, body.AnswerID)
-		if err != nil {
-			HandleError(c, err)
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"correct": correct,
+	var body dto.CheckAnswerDTO
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid json",
 		})
+		return
 	}
 
+	questionID := c.Param("question_id")
 
-func (h *AnswerHandler) ListAnswers(c *gin.Context){
-		ctx := c.Request.Context()
-		questionID := c.Param("question_id")
+	correct, err := h.AnswerService.CheckAnswer(ctx, questionID, body.AnswerID)
+	if err != nil {
+		HandleError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"correct": correct,
+	})
+}
 
-		answers, err := h.AnswerService.ListAnswers(ctx, questionID)
-		if err != nil{
-			HandleError(c, err)
-			return;
-		}
-		c.JSON(http.StatusOK, answers);
+func (h *AnswerHandler) ListAnswers(c *gin.Context) {
+	ctx := c.Request.Context()
+	questionID := c.Param("question_id")
+
+	answers, err := h.AnswerService.ListAnswers(ctx, questionID)
+	if err != nil {
+		HandleError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, answers)
+}
+
+func (h *AnswerHandler) CreateAnswer(c *gin.Context) {
+	ctx := c.Request.Context()
+	questionID := c.Param("question_id")
+
+	var body dto.CreateAnswerDTO
+
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid json format",
+		})
+		return
 	}
 
-func (h *AnswerHandler) CreateAnswer(c *gin.Context){
-		ctx := c.Request.Context()
-		questionID := c.Param("question_id")
+	userID := c.MustGet("userID").(int)
 
-		var body dto.CreateAnswerDTO;
-
-		if err := c.ShouldBindJSON(&body); err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid json format",
-			})
-			return;
-		}
-
-		userID := c.MustGet("userID").(int)
-
-		newAnswer, err := h.AnswerService.CreateAnswer(ctx, questionID, body, userID);
-		if err != nil{
-			HandleError(c, err)
-			return;
-		}
-
-		c.JSON(http.StatusCreated, newAnswer);
+	newAnswer, err := h.AnswerService.CreateAnswer(ctx, questionID, body, userID)
+	if err != nil {
+		HandleError(c, err)
+		return
 	}
 
-func (h *AnswerHandler) GetAnswer(c *gin.Context){
-		ctx := c.Request.Context()
-		answerID := c.Param("answer_id")
+	c.JSON(http.StatusCreated, newAnswer)
+}
 
-		answer, err := h.AnswerService.GetAnswer(ctx, answerID);
-		
-		if err != nil{
-			HandleError(c, err)
-			return;
-		}
+func (h *AnswerHandler) GetAnswer(c *gin.Context) {
+	ctx := c.Request.Context()
+	answerID := c.Param("answer_id")
 
-		c.JSON(http.StatusOK, answer);
+	answer, err := h.AnswerService.GetAnswer(ctx, answerID)
+
+	if err != nil {
+		HandleError(c, err)
+		return
 	}
 
-func (h *AnswerHandler) DeleteAnswer(c *gin.Context){
-		ctx := c.Request.Context()
-		answerID := c.Param("answer_id");
+	c.JSON(http.StatusOK, answer)
+}
 
-		userID := c.MustGet("userID").(int)
+func (h *AnswerHandler) DeleteAnswer(c *gin.Context) {
+	ctx := c.Request.Context()
+	answerID := c.Param("answer_id")
 
-		err := h.AnswerService.DeleteAnswer(ctx, answerID, userID)
-		if err != nil{
-			HandleError(c, err)
-			return;
-		}
+	userID := c.MustGet("userID").(int)
 
-		c.Status(http.StatusNoContent);
+	err := h.AnswerService.DeleteAnswer(ctx, answerID, userID)
+	if err != nil {
+		HandleError(c, err)
+		return
 	}
 
-func (h *AnswerHandler) UpdateAnswer(c *gin.Context){
-		ctx := c.Request.Context()
-		answerID := c.Param("answer_id");
+	c.Status(http.StatusNoContent)
+}
 
-		var body dto.UpdateAnswerDTO
+func (h *AnswerHandler) UpdateAnswer(c *gin.Context) {
+	ctx := c.Request.Context()
+	answerID := c.Param("answer_id")
 
-		if err := c.ShouldBindJSON(&body); err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "invalid json format",
-			})
-			return;
-		}
+	var body dto.UpdateAnswerDTO
 
-		userID := c.MustGet("userID").(int)
-
-		updatedAnswer, err := h.AnswerService.UpdateAnswer(ctx, answerID, body, userID);
-		if err != nil{
-			HandleError(c, err)
-			return;
-		}
-
-		c.JSON(http.StatusOK, updatedAnswer);
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid json format",
+		})
+		return
 	}
+
+	userID := c.MustGet("userID").(int)
+
+	updatedAnswer, err := h.AnswerService.UpdateAnswer(ctx, answerID, body, userID)
+	if err != nil {
+		HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, updatedAnswer)
+}

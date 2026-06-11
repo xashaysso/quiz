@@ -3,8 +3,8 @@ package dto
 import entities "quiz/entities/db"
 
 type CreateQuestionDTO struct {
-	Text    string           `json:"text"`
-	Answers []AnswerResponse `json:"answers"`
+	Text    string            `json:"text"`
+	Answers []CreateAnswerDTO `json:"answers"`
 }
 
 type UpdateQuestionDTO struct {
@@ -13,22 +13,22 @@ type UpdateQuestionDTO struct {
 }
 
 type QuestionResponse struct {
-	ID      int              `json:"id"`
-	Text    string           `json:"text"`
-	Answers []AnswerResponse `json:"answers"`
+	ID      int                    `json:"id"`
+	Text    string                 `json:"text"`
+	Answers []AnswerPublicResponse `json:"answers"`
 }
 
 func NewQuestionResponse(q entities.Question, answers []entities.Answer) QuestionResponse {
-	answersDTO := make([]AnswerResponse, len(answers))
+	answersDTO := make([]AnswerPublicResponse, len(answers))
 	for i, a := range answers {
-		answersDTO[i] = AnswerResponse{
-			ID: a.ID,
+		answersDTO[i] = AnswerPublicResponse{
+			ID:   a.ID,
 			Text: a.Text,
 		}
 	}
 	return QuestionResponse{
-		ID: q.ID,
-		Text: q.Text,
+		ID:      q.ID,
+		Text:    q.Text,
 		Answers: answersDTO,
 	}
 }
