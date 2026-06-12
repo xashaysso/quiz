@@ -16,6 +16,13 @@ type AuthService struct {
 	SessionRepo repositories.SessionRepository
 }
 
+func NewAuthService(uRepo repositories.UserRepository, sRepo repositories.SessionRepository) AuthServiceInterface {
+	return &AuthService{
+		UserRepo:    uRepo,
+		SessionRepo: sRepo,
+	}
+}
+
 func (s *AuthService) Register(ctx context.Context, username, password string) (entities.User, string, error) {
 	if len(username) < 3 {
 		return entities.User{}, "", ErrInvalidUsername

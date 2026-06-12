@@ -37,26 +37,23 @@ func main() {
 	txManager := pg.NewPgTxManager(globalPool)
 
 	// services
-	quizService := &services.QuizService{QuizRepo: quizRepo}
-	questionService := &services.QuestionService{QuestionRepo: questionRepo, AnswerRepo: answerRepo, TxManager: txManager}
-	answerService := &services.AnswerService{AnswerRepo: answerRepo}
+	quizService := services.NewQuizService(quizRepo)
+	questionService := services.NewQuestionService(questionRepo, answerRepo, txManager)
+	answerService := services.NewAnswerService(answerRepo, txManager)
 
 	// handlers
-	quizH := &handlers.QuizHandler{QuizService: quizService}
-	questionH := &handlers.QuestionHandler{QuestionService: questionService}
-	answerH := &handlers.AnswerHandler{AnswerService: answerService}
+	quizH := handlers.NewQuizHandler(quizService)
+	questionH := handlers.NewQuestionHandler(questionService)
+	answerH := handlers.NewAnswerHandler(answerService)
 
 	// redis init
 	rdb := db.NewRedisClient(REDIS_ADDR)
 
 	sessionRepo := redis.NewSessionRepository(rdb)
 
-	authService := &services.AuthService{
-		UserRepo:    userRepo,
-		SessionRepo: sessionRepo,
-	}
+	authService := services.NewAuthService(userRepo, sessionRepo)
 
-	authH := &handlers.AuthHandler{AuthService: authService}
+	authH := handlers.NewAuthHandler(authService)
 	// routes
 	auth := router.Group("/auth")
 	{

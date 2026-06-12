@@ -17,6 +17,14 @@ type QuestionService struct {
 	TxManager    repositories.TransactionManager
 }
 
+func NewQuestionService(qRepo repositories.QuestionRepository, aRepo repositories.AnswerRepository, txm repositories.TransactionManager) QuestionServiceInterface {
+	return &QuestionService{
+		QuestionRepo: qRepo,
+		AnswerRepo:   aRepo,
+		TxManager:    txm,
+	}
+}
+
 func (s *QuestionService) CreateQuestion(ctx context.Context, quizID string, body dto.CreateQuestionDTO, userID int) (dto.QuestionResponse, error) {
 	if len(body.Answers) == 0 {
 		return dto.QuestionResponse{}, ErrNoQuestionAnswers

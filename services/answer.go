@@ -16,6 +16,13 @@ type AnswerService struct {
 	TxManager  repositories.TransactionManager
 }
 
+func NewAnswerService(aRepo repositories.AnswerRepository, txm repositories.TransactionManager) AnswerServiceInterface {
+	return &AnswerService{
+		AnswerRepo: aRepo,
+		TxManager:  txm,
+	}
+}
+
 func (s *AnswerService) CheckAnswer(ctx context.Context, questionID string, answerID int) (bool, error) {
 	qID, err := strconv.Atoi(questionID)
 	if err != nil {
@@ -121,7 +128,7 @@ func (s *AnswerService) DeleteAnswer(ctx context.Context, answerID string, userI
 	}
 	err = s.AnswerRepo.DeleteAnswer(ctx, aID)
 
-	return nil
+	return err
 }
 
 func (s *AnswerService) UpdateAnswer(ctx context.Context, answerID string, data dto.UpdateAnswerDTO, userID int) (dto.AnswerPublicResponse, error) {

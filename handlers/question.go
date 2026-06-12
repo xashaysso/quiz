@@ -9,7 +9,13 @@ import (
 )
 
 type QuestionHandler struct {
-	QuestionService *services.QuestionService
+	QuestionService services.QuestionServiceInterface
+}
+
+func NewQuestionHandler(service services.QuestionServiceInterface) *QuestionHandler {
+	return &QuestionHandler{
+		QuestionService: service,
+	}
 }
 
 func (h *QuestionHandler) CreateQuestion(c *gin.Context) {

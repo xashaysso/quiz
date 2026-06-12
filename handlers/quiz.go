@@ -9,7 +9,13 @@ import (
 )
 
 type QuizHandler struct {
-	QuizService *services.QuizService
+	QuizService services.QuizServiceInterface
+}
+
+func NewQuizHandler(service services.QuizServiceInterface) *QuizHandler {
+	return &QuizHandler{
+		QuizService: service,
+	}
 }
 
 func (h *QuizHandler) ListQuizzes(c *gin.Context) {

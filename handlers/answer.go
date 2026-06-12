@@ -9,7 +9,13 @@ import (
 )
 
 type AnswerHandler struct {
-	AnswerService *services.AnswerService
+	AnswerService services.AnswerServiceInterface
+}
+
+func NewAnswerHandler(service services.AnswerServiceInterface) *AnswerHandler {
+	return &AnswerHandler{
+		AnswerService: service,
+	}
 }
 
 func (h *AnswerHandler) CheckAnswer(c *gin.Context) {

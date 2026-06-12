@@ -10,7 +10,13 @@ import (
 )
 
 type AuthHandler struct {
-	AuthService *services.AuthService
+	AuthService services.AuthServiceInterface
+}
+
+func NewAuthHandler(service services.AuthServiceInterface) *AuthHandler {
+	return &AuthHandler{
+		AuthService: service,
+	}
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {

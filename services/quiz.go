@@ -15,6 +15,12 @@ type QuizService struct {
 	QuizRepo repositories.QuizRepository
 }
 
+func NewQuizService(repo repositories.QuizRepository) QuizServiceInterface {
+	return &QuizService{
+		QuizRepo: repo,
+	}
+}
+
 func (s *QuizService) checkIfAuthor(ctx context.Context, quizID int, userID int) error {
 	quiz, err := s.QuizRepo.GetQuizByID(ctx, quizID)
 	if err != nil {
