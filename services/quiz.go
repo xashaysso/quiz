@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"quiz/db/repositories"
 	entities "quiz/entities/db"
 	"strconv"
@@ -52,6 +53,9 @@ func (s *QuizService) DeleteQuiz(ctx context.Context, quizID string, userID int)
 	if err != nil {
 		return err
 	}
+
+	slog.Info("quiz deleted successfully", slog.Int("quiz_id", qID), slog.Int("deleted_by", userID))
+
 	return s.QuizRepo.DeleteQuiz(ctx, qID)
 }
 
@@ -63,6 +67,9 @@ func (s *QuizService) CreateQuiz(ctx context.Context, name, description string, 
 	if err != nil {
 		return entities.Quiz{}, err
 	}
+
+	slog.Info("quiz created successfully", slog.Int("quiz_id", newQuiz.ID), slog.Int("creator_id", userID))
+
 	return newQuiz, nil
 }
 
@@ -78,6 +85,8 @@ func (s *QuizService) UpdateQuiz(ctx context.Context, quizID string, name, descr
 	if err != nil {
 		return entities.Quiz{}, err
 	}
+
+	slog.Info("quiz updated successfully", slog.Int("quiz_id", qID), slog.Int("updated_by", userID))
 
 	return s.QuizRepo.UpdateQuiz(ctx, qID, name, description)
 }

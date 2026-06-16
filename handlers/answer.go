@@ -61,7 +61,7 @@ func (h *AnswerHandler) CreateAnswer(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid json format",
+			"error": "invalid json",
 		})
 		return
 	}
@@ -114,7 +114,7 @@ func (h *AnswerHandler) UpdateAnswer(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid json format",
+			"error": "invalid json",
 		})
 		return
 	}

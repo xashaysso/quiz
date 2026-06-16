@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -12,7 +12,11 @@ import (
 func execSQL(ctx context.Context, pool *pgxpool.Pool, sql string) {
 	_, err := pool.Exec(ctx, sql)
 	if err != nil {
-		log.Fatalf("Error creating table: %v\nSQL: %s", err, sql)
+		slog.Error("failed to execute SQL query",
+			slog.Any("err", err),
+			slog.String("sql", sql),
+		)
+		os.Exit(1)
 	}
 }
 
@@ -44,7 +48,7 @@ func CreateTables(ctx context.Context, pool *pgxpool.Pool) {
 		correct BOOLEAN DEFAULT false
 	)`)
 
-	log.Println("All tables created succesfully.")
+	slog.Info("all tables created succesfully.")
 }
 
 func Serve() *pgxpool.Pool {
@@ -54,14 +58,14 @@ func Serve() *pgxpool.Pool {
 
 	pool, err := pgxpool.New(ctx, DB_URL)
 	if err != nil {
-		log.Fatalf("Unable to connect to db: %v", err)
+		slog.Error("unable to create database pool", slog.Any("err", err))
 	}
 
 	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("Database ping failed: %v", err)
+		slog.Error("database ping failed", slog.Any("err", err))
 	}
 
-	log.Printf("Connected to db successfully")
+	slog.Info("connected to db successfully")
 
 	CreateTables(ctx, pool)
 
@@ -76,9 +80,10 @@ func NewRedisClient(addr string) *redis.Client {
 		DB:       0,
 	})
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		log.Fatalf("Redis connection failed: %v", err)
+		slog.Error("redis connection failed", slog.Any("err", err), slog.String("addr", addr))
+		os.Exit(1)
 	}
-	log.Printf("Connected to redis sucessfully")
+	slog.Info("connected to redis successfully", slog.String("addr", addr))
 
 	return rdb
 }

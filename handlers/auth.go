@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
 	"quiz/entities/dto"
 	"quiz/services"
@@ -32,21 +31,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	user, token, err := h.AuthService.Register(ctx, body.Username, body.Password)
 	if err != nil {
-		if errors.Is(err, services.ErrUserAlreadyExists) {
-			c.JSON(http.StatusConflict, gin.H{
-				"error": "username already taken",
-			})
-			return
-		}
-		if errors.Is(err, services.ErrInvalidPassword) || errors.Is(err, services.ErrInvalidUsername) {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "internal server error",
-		})
+		HandleError(c, err)
 		return
 	}
 
@@ -76,15 +61,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	token, err := h.AuthService.Login(ctx, body.Username, body.Password)
 	if err != nil {
-		if errors.Is(err, services.ErrWrongCredentials) {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "something went wrong",
-		})
+		HandleError(c, err)
 		return
 	}
 
@@ -107,9 +84,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	}
 	err = h.AuthService.Logout(ctx, token)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "something went wrong",
-		})
+		HandleError(c, err)
 		return
 	}
 	c.SetCookie("token", token, -1, "/", "", false, true)

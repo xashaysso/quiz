@@ -17,15 +17,13 @@ type CheckAnswerDTO struct {
 }
 
 type AnswerPublicResponse struct {
-	ID         int    `json:"id"`
-	QuestionID int    `json:"question_id"`
-	Text       string `json:"text"`
+	ID   int    `json:"id"`
+	Text string `json:"text"`
 }
 
 func NewAnswerResponse(a entities.Answer) AnswerPublicResponse {
 	return AnswerPublicResponse{
-		ID:         a.ID,
-		QuestionID: a.QuestionID,
-		Text:       a.Text,
+		ID:   a.ID,
+		Text: a.Text,
 	}
 }

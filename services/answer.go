@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"quiz/db/repositories"
 	entities "quiz/entities/db"
 	"quiz/entities/dto"
@@ -84,15 +85,16 @@ func (s *AnswerService) CreateAnswer(ctx context.Context, questionID string, dat
 		}
 
 		answer = dto.AnswerPublicResponse{
-			ID:         ansID,
-			QuestionID: qID,
-			Text:       data.Text,
+			ID:   ansID,
+			Text: data.Text,
 		}
 		return nil
 	})
 	if err != nil {
 		return dto.AnswerPublicResponse{}, err
 	}
+
+	slog.Info("answer created successfully", slog.Int("question_id", qID), slog.Int("creator_id", userID))
 
 	return answer, nil
 }
@@ -124,9 +126,12 @@ func (s *AnswerService) DeleteAnswer(ctx context.Context, answerID string, userI
 		return err
 	}
 	if !isOwner {
+		slog.Warn("unauthorized mutation attempt", slog.Int("user_id", userID), slog.Int("target_answer_id", aID))
 		return ErrNotAnAuthor
 	}
 	err = s.AnswerRepo.DeleteAnswer(ctx, aID)
+
+	slog.Info("answer deleted successfully", slog.Int("answer_id", aID), slog.Int("deleted_by", userID))
 
 	return err
 }
@@ -145,6 +150,7 @@ func (s *AnswerService) UpdateAnswer(ctx context.Context, answerID string, data 
 		return dto.AnswerPublicResponse{}, err
 	}
 	if !isOwner {
+		slog.Warn("unauthorized mutation attempt", slog.Int("user_id", userID), slog.Int("target_answer_id", aID))
 		return dto.AnswerPublicResponse{}, ErrNotAnAuthor
 	}
 
@@ -158,6 +164,8 @@ func (s *AnswerService) UpdateAnswer(ctx context.Context, answerID string, data 
 		}
 		return dto.AnswerPublicResponse{}, err
 	}
+
+	slog.Info("answer updated successfully", slog.Int("answer_id", aID), slog.Int("updated_by", userID))
 
 	return dto.NewAnswerResponse(answer), nil
 }

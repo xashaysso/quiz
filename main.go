@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"os"
 
 	"quiz/db"
@@ -22,6 +23,24 @@ func main() {
 	if err != nil {
 		log.Println("No .env file found")
 	}
+
+	// logger
+	var logger *slog.Logger
+
+	if os.Getenv("APP_ENV") == "prod" {
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+	} else {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}))
+	}
+
+	slog.SetDefault(logger)
+
+	slog.Info("Logger service has started", slog.String("env", os.Getenv("APP_ENV")))
+
 	PORT := os.Getenv("PORT")
 	REDIS_ADDR := os.Getenv("REDIS_ADDR")
 

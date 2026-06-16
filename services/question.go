@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"quiz/db/repositories"
 	entities "quiz/entities/db"
 	"quiz/entities/dto"
@@ -39,6 +40,7 @@ func (s *QuestionService) CreateQuestion(ctx context.Context, quizID string, bod
 		return dto.QuestionResponse{}, err
 	}
 	if !isOwner {
+		slog.Warn("unauthorized mutation attempt", slog.Int("user_id", userID), slog.Int("target_quiz_id", qID))
 		return dto.QuestionResponse{}, ErrNotAnAuthor
 	}
 
@@ -83,6 +85,8 @@ func (s *QuestionService) CreateQuestion(ctx context.Context, quizID string, bod
 		Text:   body.Text,
 		QuizID: qID,
 	}
+
+	slog.Info("question with answers created successfully", slog.Int("quiz_id", qID), slog.Int("answers_count", len(body.Answers)))
 
 	return dto.NewQuestionResponse(question, answers), nil
 }
@@ -151,6 +155,7 @@ func (s *QuestionService) UpdateQuestion(ctx context.Context, questionID string,
 		return dto.QuestionResponse{}, err
 	}
 	if !isOwner {
+		slog.Warn("unauthorized mutation attempt", slog.Int("user_id", userID), slog.Int("target_question_id", qID))
 		return dto.QuestionResponse{}, ErrNotAnAuthor
 	}
 
@@ -168,6 +173,8 @@ func (s *QuestionService) UpdateQuestion(ctx context.Context, questionID string,
 		return dto.QuestionResponse{}, ErrAnswerNotFound
 	}
 
+	slog.Info("question updated successfully", slog.Int("question_id", qID), slog.Int("updated_by", userID))
+
 	return dto.NewQuestionResponse(question, answers), nil
 }
 
@@ -182,6 +189,7 @@ func (s *QuestionService) DeleteQuestion(ctx context.Context, questionID string,
 		return err
 	}
 	if !isOwner {
+		slog.Warn("unauthorized mutation attempt", slog.Int("user_id", userID), slog.Int("target_question_id", qID))
 		return ErrNotAnAuthor
 	}
 
@@ -193,5 +201,8 @@ func (s *QuestionService) DeleteQuestion(ctx context.Context, questionID string,
 		}
 		return err
 	}
+
+	slog.Info("question deleted successfully", slog.Int("question_id", qID), slog.Int("deleted_by", userID))
+
 	return nil
 }

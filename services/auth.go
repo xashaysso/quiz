@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"quiz/db/repositories"
 	entities "quiz/entities/db"
 	"time"
@@ -44,6 +45,8 @@ func (s *AuthService) Register(ctx context.Context, username, password string) (
 		return entities.User{}, "", err
 	}
 
+	slog.Info("new user registered successfully", slog.Int("user_id", user.ID), slog.String("username", user.Username))
+
 	token, err := s.Login(ctx, username, password)
 	if err != nil {
 		return entities.User{}, "", err
@@ -55,11 +58,13 @@ func (s *AuthService) Register(ctx context.Context, username, password string) (
 func (s *AuthService) Login(ctx context.Context, username, password string) (string, error) {
 	user, err := s.UserRepo.GetByUsername(ctx, username)
 	if err != nil {
+		slog.Warn("login failed: user not found", slog.String("username", username))
 		return "", ErrWrongCredentials
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	if err != nil {
+		slog.Warn("login failed: wrong password", slog.Int("user_id", user.ID), slog.String("username", user.Username))
 		return "", ErrWrongCredentials
 	}
 
@@ -70,6 +75,9 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 	if err != nil {
 		return "", err
 	}
+
+	slog.Info("user logged in successfully", slog.Int("user_id", user.ID), slog.String("username", user.Username))
+
 	return token, nil
 }
 
@@ -78,5 +86,8 @@ func (s *AuthService) Logout(ctx context.Context, token string) error {
 	if err != nil {
 		return err
 	}
+
+	slog.Info("user logged out successfully")
+
 	return nil
 }
