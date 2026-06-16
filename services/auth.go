@@ -2,12 +2,12 @@ package services
 
 import (
 	"context"
+	"errors"
 	"quiz/db/repositories"
 	entities "quiz/entities/db"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -38,7 +38,7 @@ func (s *AuthService) Register(ctx context.Context, username, password string) (
 
 	user, err := s.UserRepo.CreateUser(ctx, username, string(hash))
 	if err != nil {
-		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
+		if errors.Is(err, repositories.ErrUserAlreadyExists) {
 			return entities.User{}, "", ErrUserAlreadyExists
 		}
 		return entities.User{}, "", err
