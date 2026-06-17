@@ -2,53 +2,35 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
 	"github.com/redis/go-redis/v9"
 )
 
-func execSQL(ctx context.Context, pool *pgxpool.Pool, sql string) {
-	_, err := pool.Exec(ctx, sql)
+func RunMigrations(dbURL string) {
+	db, err := sql.Open("pgx", dbURL)
 	if err != nil {
-		slog.Error("failed to execute SQL query",
-			slog.Any("err", err),
-			slog.String("sql", sql),
-		)
+		slog.Error("failed to open db connection for migrations", slog.Any("err", err))
 		os.Exit(1)
 	}
-}
+	defer db.Close()
 
-func CreateTables(ctx context.Context, pool *pgxpool.Pool) {
-	execSQL(ctx, pool, `CREATE TABLE IF NOT EXISTS users(
-		id SERIAL PRIMARY KEY,
-		username TEXT NOT NULL UNIQUE,
-		password_hash TEXT NOT NULL,
-		created_at TIMESTAMP DEFAULT NOW()
-	)`)
+	if err := goose.SetDialect("postgres"); err != nil {
+		slog.Error("failed to set goose dialect", slog.Any("err", err))
+		os.Exit(1)
+	}
 
-	execSQL(ctx, pool, `CREATE TABLE IF NOT EXISTS quiz(
-		id SERIAL PRIMARY KEY,
-		name TEXT NOT NULL,
-		description TEXT,
-		creator_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE
-	)`)
-
-	execSQL(ctx, pool, `CREATE TABLE IF NOT EXISTS questions(
-		id SERIAL PRIMARY KEY,
-		text TEXT NOT NULL,
-		quiz_id INT NOT NULL REFERENCES quiz(id) ON DELETE CASCADE
-	)`)
-
-	execSQL(ctx, pool, `CREATE TABLE IF NOT EXISTS answers(
-		id SERIAL PRIMARY KEY,
-		text TEXT NOT NULL,
-		question_id INT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
-		correct BOOLEAN DEFAULT false
-	)`)
-
-	slog.Info("all tables created succesfully.")
+	slog.Info("running database migrations...")
+	if err := goose.Up(db, "migrations"); err != nil {
+		slog.Error("migration up failed", slog.Any("err", err))
+		os.Exit(1)
+	}
+	slog.Info("database migrations applied successfully")
 }
 
 func Serve() *pgxpool.Pool {
@@ -56,18 +38,20 @@ func Serve() *pgxpool.Pool {
 
 	DB_URL := os.Getenv("DB_URL")
 
+	RunMigrations(DB_URL)
+
 	pool, err := pgxpool.New(ctx, DB_URL)
 	if err != nil {
 		slog.Error("unable to create database pool", slog.Any("err", err))
+		os.Exit(1)
 	}
 
 	if err := pool.Ping(ctx); err != nil {
 		slog.Error("database ping failed", slog.Any("err", err))
+		os.Exit(1)
 	}
 
 	slog.Info("connected to db successfully")
-
-	CreateTables(ctx, pool)
 
 	return pool
 }

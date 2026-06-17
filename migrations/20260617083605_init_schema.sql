@@ -1,0 +1,33 @@
+-- +goose Up
+CREATE TABLE IF NOT EXISTS users(
+		id SERIAL PRIMARY KEY,
+		username TEXT NOT NULL UNIQUE,
+		password_hash TEXT NOT NULL,
+		created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS quiz(
+		id SERIAL PRIMARY KEY,
+		name TEXT NOT NULL,
+		description TEXT,
+		creator_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS questions(
+		id SERIAL PRIMARY KEY,
+		text TEXT NOT NULL,
+		quiz_id INT NOT NULL REFERENCES quiz(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS answers(
+		id SERIAL PRIMARY KEY,
+		text TEXT NOT NULL,
+		question_id INT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+		correct BOOLEAN DEFAULT false
+);
+
+-- +goose Down
+DROP TABLE IF EXISTS answers;
+DROP TABLE IF EXISTS questions;
+DROP TABLE IF EXISTS quiz;
+DROP TABLE IF EXISTS users
