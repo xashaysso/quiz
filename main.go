@@ -1,9 +1,15 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"quiz/db"
 	"quiz/db/repositories/pg"
@@ -120,5 +126,33 @@ func main() {
 		answer.DELETE("/:answer_id", answerH.DeleteAnswer)
 	}
 
-	router.Run(PORT)
+	// server start
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: router,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("listen and serve failed", slog.Any("err", err))
+			os.Exit(1)
+		}
+	}()
+	slog.Info("server started succesfully", slog.String("port", PORT))
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	<-quit
+	slog.Info("shutting down server...")
+
+	shutdownTime := 5 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTime)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		slog.Error("server forced to shutdown", slog.Any("err", err))
+		os.Exit(1)
+	}
+	slog.Info("server exited cleanly")
 }
