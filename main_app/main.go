@@ -16,6 +16,7 @@ import (
 	"quiz/db/repositories/redis"
 	"quiz/handlers"
 	"quiz/middleware"
+	"quiz/pkg/kafka"
 	"quiz/services"
 
 	"github.com/gin-gonic/gin"
@@ -124,6 +125,17 @@ func main() {
 		answer.GET("/:answer_id", answerH.GetAnswer)
 		answer.PATCH("/:answer_id", answerH.UpdateAnswer)
 		answer.DELETE("/:answer_id", answerH.DeleteAnswer)
+	}
+
+	// kafka producer
+	kafkaProducer := kafka.NewProducer([]string{"localhost:9092"}, "quiz-results")
+	defer kafkaProducer.Close()
+
+	ctx, cancelTest := context.WithTimeout(context.Background(), 2*time.Second)
+	err = kafkaProducer.SendMessage(ctx, []byte("test_key"), []byte("Hi!"))
+	cancelTest()
+	if err != nil {
+		slog.Error("kafka test ping failed", slog.Any("err", err))
 	}
 
 	// server start
