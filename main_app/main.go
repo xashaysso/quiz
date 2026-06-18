@@ -128,7 +128,7 @@ func main() {
 
 	// server start
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    PORT,
 		Handler: router,
 	}
 
