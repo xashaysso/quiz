@@ -71,7 +71,7 @@ func TestAnswerService_CheckAnswer(t *testing.T) {
 			service := services.NewAnswerService(mockAnswerRepo, nil)
 			ctx := context.Background()
 
-			res, err := service.CheckAnswer(ctx, tc.questionID, tc.answerID)
+			res, err := service.CheckAnswer(ctx, "random_session", tc.questionID, tc.answerID)
 
 			assert.ErrorIs(t, err, tc.wantErr)
 			assert.Equal(t, tc.wantResult, res)

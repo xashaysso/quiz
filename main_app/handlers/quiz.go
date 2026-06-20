@@ -86,3 +86,22 @@ func (h *QuizHandler) UpdateQuiz(c *gin.Context) {
 
 	c.JSON(http.StatusOK, newQuiz)
 }
+
+func (h *QuizHandler) StartQuiz(c *gin.Context) {
+	ctx := c.Request.Context()
+	quizID := c.Param("quiz_id")
+
+	userID := c.MustGet("userID").(int64)
+
+	session, err := h.QuizService.StartQuiz(ctx, userID, quizID)
+	if err != nil {
+		HandleError(c, err)
+		return
+	}
+
+	c.SetCookie("quiz_session", session, 3600, "/", "", false, true)
+
+	c.JSON(http.StatusCreated, gin.H{
+		"quiz_session": session,
+	})
+}

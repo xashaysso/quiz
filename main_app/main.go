@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,6 +14,7 @@ import (
 	"quiz/db"
 	"quiz/db/repositories/pg"
 	"quiz/db/repositories/redis"
+	"quiz/entities/dto"
 	"quiz/handlers"
 	"quiz/middleware"
 	"quiz/pkg/kafka"
@@ -28,7 +29,7 @@ func main() {
 
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("No .env file found")
+		slog.Error("No .env file found")
 	}
 
 	// logger
@@ -62,8 +63,15 @@ func main() {
 	userRepo := pg.NewUserRepo(globalPool)
 	txManager := pg.NewPgTxManager(globalPool)
 
+	// redis init
+	rdb := db.NewRedisClient(REDIS_ADDR)
+
+	sessionRepo := redis.NewSessionRepository(rdb)
+
+	authService := services.NewAuthService(userRepo, sessionRepo)
+
 	// services
-	quizService := services.NewQuizService(quizRepo)
+	quizService := services.NewQuizService(quizRepo, questionRepo, sessionRepo)
 	questionService := services.NewQuestionService(questionRepo, answerRepo, txManager)
 	answerService := services.NewAnswerService(answerRepo, txManager)
 
@@ -71,13 +79,6 @@ func main() {
 	quizH := handlers.NewQuizHandler(quizService)
 	questionH := handlers.NewQuestionHandler(questionService)
 	answerH := handlers.NewAnswerHandler(answerService)
-
-	// redis init
-	rdb := db.NewRedisClient(REDIS_ADDR)
-
-	sessionRepo := redis.NewSessionRepository(rdb)
-
-	authService := services.NewAuthService(userRepo, sessionRepo)
 
 	authH := handlers.NewAuthHandler(authService)
 	// routes
@@ -97,6 +98,7 @@ func main() {
 		quiz.POST("/", quizH.CreateQuiz)
 		quiz.PATCH("/:quiz_id", quizH.UpdateQuiz)
 		quiz.DELETE("/:quiz_id", quizH.DeleteQuiz)
+		quiz.POST("/:quiz_id/start", quizH.StartQuiz)
 
 		// question handlers
 		quiz.GET("/:quiz_id/questions", questionH.ListQuestions)
@@ -131,8 +133,21 @@ func main() {
 	kafkaProducer := kafka.NewProducer([]string{"localhost:9092"}, "quiz-results")
 	defer kafkaProducer.Close()
 
+	event := dto.QuizPassedEvent{
+		QuizID:         10,
+		UserID:         54,
+		Score:          25,
+		TotalQuestions: 10,
+		PassedAt:       time.Now(),
+	}
+	eventBytes, err := json.Marshal(event)
+	if err != nil {
+		slog.Error("failed to marshal quiz event", slog.Any("err", err))
+		return
+	}
+
 	ctx, cancelTest := context.WithTimeout(context.Background(), 2*time.Second)
-	err = kafkaProducer.SendMessage(ctx, []byte("test_key"), []byte("Hi!"))
+	err = kafkaProducer.SendMessage(ctx, []byte("54"), eventBytes)
 	cancelTest()
 	if err != nil {
 		slog.Error("kafka test ping failed", slog.Any("err", err))

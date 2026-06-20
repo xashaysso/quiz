@@ -19,6 +19,7 @@ type QuizRepository interface {
 
 type QuestionRepository interface {
 	GetQuizQuestions(ctx context.Context, id int) ([]entities.Question, error)
+	GetQuestionIDsByQuizID(ctx context.Context, quizID int64) ([]int64, error)
 	CreateQuestion(ctx context.Context, tx any, quizID int, data dto.CreateQuestionDTO) (int, error)
 	GetQuestion(ctx context.Context, questionID int) (entities.Question, error)
 	UpdateQuestion(ctx context.Context, questionID int, data dto.UpdateQuestionDTO) (entities.Question, error)
@@ -48,6 +49,9 @@ type SessionRepository interface {
 	Get(ctx context.Context, token string) (int, error)
 	Set(ctx context.Context, token string, userID int, ttl time.Duration) error
 	Delete(ctx context.Context, token string) error
+	SaveQuizSession(ctx context.Context, session entities.QuizSession, ttl time.Duration) error
+	GetQuizSession(ctx context.Context, sessionID string) (*entities.QuizSession, error)
+	DeleteQuizSession(ctx context.Context, sessionID string) error
 }
 
 type TransactionManager interface {

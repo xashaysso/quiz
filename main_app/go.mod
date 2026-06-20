@@ -9,6 +9,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/redis/go-redis/v9 v9.19.0
+	github.com/segmentio/kafka-go v0.4.51
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.50.0
@@ -45,7 +46,6 @@ require (
 	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/quic-go/quic-go v0.54.0 // indirect
 	github.com/rogpeppe/go-internal v1.15.0 // indirect
-	github.com/segmentio/kafka-go v0.4.51 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect

@@ -8,17 +8,23 @@ import (
 	"quiz/db/repositories"
 	entities "quiz/entities/db"
 	"strconv"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 type QuizService struct {
-	QuizRepo repositories.QuizRepository
+	QuizRepo     repositories.QuizRepository
+	QuestionRepo repositories.QuestionRepository
+	SessionRepo  repositories.SessionRepository
 }
 
-func NewQuizService(repo repositories.QuizRepository) QuizServiceInterface {
+func NewQuizService(quizRepo repositories.QuizRepository, questionRepo repositories.QuestionRepository, sessionRepo repositories.SessionRepository) QuizServiceInterface {
 	return &QuizService{
-		QuizRepo: repo,
+		QuizRepo:     quizRepo,
+		QuestionRepo: questionRepo,
+		SessionRepo:  sessionRepo,
 	}
 }
 
@@ -89,4 +95,37 @@ func (s *QuizService) UpdateQuiz(ctx context.Context, quizID string, name, descr
 	slog.Info("quiz updated successfully", slog.Int("quiz_id", qID), slog.Int("updated_by", userID))
 
 	return s.QuizRepo.UpdateQuiz(ctx, qID, name, description)
+}
+
+func (s *QuizService) StartQuiz(ctx context.Context, userID int64, quizID string) (string, error) {
+	qID, err := strconv.ParseInt(quizID, 10, 64)
+	if err != nil {
+		return "", ErrInvalidIDFormat
+	}
+
+	questionIDs, err := s.QuestionRepo.GetQuestionIDsByQuizID(ctx, qID)
+	if err != nil {
+		return "", err
+	}
+	if len(questionIDs) == 0 {
+		return "", ErrQuizHasNoQuestions
+	}
+
+	sessionID := uuid.New().String()
+
+	session := entities.QuizSession{
+		SessionID:         sessionID,
+		UserID:            userID,
+		QuizID:            qID,
+		CurrentScore:      0,
+		Questions:         questionIDs,
+		AnsweredQuestions: make([]int64, 0),
+	}
+
+	err = s.SessionRepo.SaveQuizSession(ctx, session, time.Hour)
+	if err != nil {
+		return "", err
+	}
+
+	return sessionID, nil
 }

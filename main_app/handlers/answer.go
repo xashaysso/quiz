@@ -31,7 +31,15 @@ func (h *AnswerHandler) CheckAnswer(c *gin.Context) {
 
 	questionID := c.Param("question_id")
 
-	correct, err := h.AnswerService.CheckAnswer(ctx, questionID, body.AnswerID)
+	sessionID, err := c.Cookie("quiz_session")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "quiz session missing or expired, please start the quiz again",
+		})
+		return
+	}
+
+	correct, err := h.AnswerService.CheckAnswer(ctx, sessionID, questionID, body.AnswerID)
 	if err != nil {
 		HandleError(c, err)
 		return

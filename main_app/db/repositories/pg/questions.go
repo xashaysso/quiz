@@ -149,3 +149,23 @@ func (r *PgQuestionRepo) CheckIfQuestionOwner(ctx context.Context, questionID in
 
 	return isOwner, err
 }
+
+func (r *PgQuestionRepo) GetQuestionIDsByQuizID(ctx context.Context, quizID int64) ([]int64, error) {
+	rows, err := r.Pool.Query(ctx, `SELECT id FROM questions WHERE quiz_id = $1 ORDER BY id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []int64
+
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, nil
+}

@@ -8,13 +8,15 @@ import (
 	entities "quiz/entities/db"
 	"quiz/entities/dto"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
 
 type AnswerService struct {
-	AnswerRepo repositories.AnswerRepository
-	TxManager  repositories.TransactionManager
+	AnswerRepo  repositories.AnswerRepository
+	SessionRepo repositories.SessionRepository
+	TxManager   repositories.TransactionManager
 }
 
 func NewAnswerService(aRepo repositories.AnswerRepository, txm repositories.TransactionManager) AnswerServiceInterface {
@@ -24,18 +26,61 @@ func NewAnswerService(aRepo repositories.AnswerRepository, txm repositories.Tran
 	}
 }
 
-func (s *AnswerService) CheckAnswer(ctx context.Context, questionID string, answerID int) (bool, error) {
-	qID, err := strconv.Atoi(questionID)
+func (s *AnswerService) CheckAnswer(ctx context.Context, sessionID string, questionID string, answerID int) (bool, error) {
+	qID, err := strconv.ParseInt(questionID, 10, 64)
 	if err != nil {
 		return false, ErrInvalidIDFormat
 	}
 
-	correct, err := s.AnswerRepo.CheckAnswer(ctx, qID, answerID)
+	session, err := s.SessionRepo.GetQuizSession(ctx, sessionID)
+	if err != nil {
+		return false, ErrSessionExpired
+	}
+
+	isQuestionValid := false
+	for _, id := range session.Questions {
+		if id == qID {
+			isQuestionValid = true
+			break
+		}
+	}
+	if !isQuestionValid {
+		return false, ErrQuestionDoesNotBelongToQuiz
+	}
+
+	for _, id := range session.AnsweredQuestions {
+		if id == qID {
+			return false, ErrQuestionAlreadyAnswered
+		}
+	}
+
+	correct, err := s.AnswerRepo.CheckAnswer(ctx, int(qID), answerID)
 	if err != nil {
 		if errors.Is(err, repositories.ErrRecordNotFound) {
 			return false, ErrQuestionNotFound
 		}
 		return false, err
+	}
+
+	if correct {
+		session.CurrentScore++
+	}
+	session.AnsweredQuestions = append(session.AnsweredQuestions, qID)
+
+	if len(session.Questions) == len(session.AnsweredQuestions) {
+		// TODO:
+		// 1. save attempt to quiz_db here
+		// 2. push session to kafka
+
+		err = s.SessionRepo.DeleteQuizSession(ctx, sessionID)
+		if err != nil {
+			return false, err
+		}
+	} else {
+		err = s.SessionRepo.SaveQuizSession(ctx, *session, time.Hour)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	return correct, nil
