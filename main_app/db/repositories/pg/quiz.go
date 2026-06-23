@@ -115,3 +115,11 @@ func (r *PgQuizRepo) UpdateQuiz(ctx context.Context, quizID int, name *string, d
 
 	return updatedQuiz, nil
 }
+
+func (r *PgQuizRepo) SaveAttempt(ctx context.Context, userID int64, quizID int64, score int) error {
+	_, err := r.Pool.Exec(ctx, `INSERT INTO quiz_attempts (user_id, quiz_id, score) VALUES ($1, $2, $3)`, userID, quizID, score)
+	if err != nil {
+		return fmt.Errorf("failed to insert quiz attempt: %w", err)
+	}
+	return nil
+}
