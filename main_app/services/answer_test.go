@@ -9,7 +9,6 @@ import (
 	"quiz/services"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -20,7 +19,7 @@ func TestAnswerService_CheckAnswer(t *testing.T) {
 		name        string
 		questionID  string
 		answerID    int
-		prepareMock func(m *mock_repositories.MockAnswerRepository)
+		prepareMock func(m *mock_repositories.MockAnswerRepository, ms *mock_repositories.MockSessionRepository)
 
 		wantResult bool
 		wantErr    error
@@ -31,10 +30,18 @@ func TestAnswerService_CheckAnswer(t *testing.T) {
 			name:       "success_correct_answer",
 			questionID: "10",
 			answerID:   2,
-			prepareMock: func(m *mock_repositories.MockAnswerRepository) {
-				m.EXPECT().CheckAnswer(gomock.Any(), 10, 2).Return(true, nil)
-			},
+			prepareMock: func(m *mock_repositories.MockAnswerRepository, ms *mock_repositories.MockSessionRepository) {
+				ms.EXPECT().GetQuizSession(gomock.Any(), "random_session").Return(&entities.QuizSession{
+					SessionID:         "random_session",
+					Questions:         []int64{10, 11, 12},
+					AnsweredQuestions: []int64{},
+					CurrentScore:      0,
+				}, nil)
 
+				m.EXPECT().CheckAnswer(gomock.Any(), 10, 2).Return(true, nil)
+
+				ms.EXPECT().SaveQuizSession(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			},
 			wantResult: true,
 			wantErr:    nil,
 		},
@@ -42,33 +49,41 @@ func TestAnswerService_CheckAnswer(t *testing.T) {
 			name:       "question_not_found",
 			questionID: "999",
 			answerID:   1,
-			prepareMock: func(m *mock_repositories.MockAnswerRepository) {
+			prepareMock: func(m *mock_repositories.MockAnswerRepository, ms *mock_repositories.MockSessionRepository) {
+				ms.EXPECT().GetQuizSession(gomock.Any(), "random_session").Return(&entities.QuizSession{
+					SessionID:         "random_session",
+					Questions:         []int64{999},
+					AnsweredQuestions: []int64{},
+				}, nil)
+
 				m.EXPECT().CheckAnswer(gomock.Any(), 999, 1).Return(false, repositories.ErrRecordNotFound)
 			},
-
 			wantResult: false,
 			wantErr:    services.ErrQuestionNotFound,
 		},
 		{
-			name:        "invalid_id_format",
-			questionID:  "abc",
-			answerID:    1,
-			prepareMock: func(m *mock_repositories.MockAnswerRepository) {},
-
+			name:       "invalid_id_format",
+			questionID: "abc",
+			answerID:   1,
+			prepareMock: func(m *mock_repositories.MockAnswerRepository, ms *mock_repositories.MockSessionRepository) {
+			},
 			wantResult: false,
 			wantErr:    services.ErrInvalidIDFormat,
 		},
 	}
-
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
 			mockAnswerRepo := mock_repositories.NewMockAnswerRepository(ctrl)
-			tc.prepareMock(mockAnswerRepo)
+			mockQuizRepo := mock_repositories.NewMockQuizRepository(ctrl)
+			mockSessionRepo := mock_repositories.NewMockSessionRepository(ctrl)
+			mockTx := mock_repositories.NewMockTransactionManager(ctrl)
+			mockQuizProducer := mock_repositories.NewMockQuizEventProducer(ctrl)
+			tc.prepareMock(mockAnswerRepo, mockSessionRepo)
 
-			service := services.NewAnswerService(mockAnswerRepo, nil)
+			service := services.NewAnswerService(mockAnswerRepo, mockQuizRepo, mockSessionRepo, mockTx, mockQuizProducer)
 			ctx := context.Background()
 
 			res, err := service.CheckAnswer(ctx, "random_session", tc.questionID, tc.answerID)
@@ -108,7 +123,7 @@ func TestAnswerService_CreateAnswer(t *testing.T) {
 			userID:     5,
 			prepareMock: func(m *mock_repositories.MockAnswerRepository, tx *mock_repositories.MockTransactionManager) {
 				m.EXPECT().CheckIfQuestionOwner(gomock.Any(), 10, 5).Return(true, nil)
-				tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(tx pgx.Tx) error) error {
+				tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(tx any) error) error {
 					return fn(nil)
 				})
 				m.EXPECT().CreateAnswer(gomock.Any(), gomock.Any(), 10, "Cool answer", true).Return(1, nil)
@@ -124,10 +139,13 @@ func TestAnswerService_CreateAnswer(t *testing.T) {
 			defer ctrl.Finish()
 
 			mockAnswerRepo := mock_repositories.NewMockAnswerRepository(ctrl)
+			mockQuizRepo := mock_repositories.NewMockQuizRepository(ctrl)
+			mockSessionRepo := mock_repositories.NewMockSessionRepository(ctrl)
 			mockTx := mock_repositories.NewMockTransactionManager(ctrl)
+			mockQuizProducer := mock_repositories.NewMockQuizEventProducer(ctrl)
 			tc.prepareMock(mockAnswerRepo, mockTx)
 
-			service := services.NewAnswerService(mockAnswerRepo, mockTx)
+			service := services.NewAnswerService(mockAnswerRepo, mockQuizRepo, mockSessionRepo, mockTx, mockQuizProducer)
 			ctx := context.Background()
 
 			_, err := service.CreateAnswer(ctx, tc.questionID, tc.dto, tc.userID)
@@ -190,10 +208,13 @@ func TestAnswerService_UpdateAnswer(t *testing.T) {
 			defer ctrl.Finish()
 
 			mockAnswerRepo := mock_repositories.NewMockAnswerRepository(ctrl)
+			mockQuizRepo := mock_repositories.NewMockQuizRepository(ctrl)
+			mockSessionRepo := mock_repositories.NewMockSessionRepository(ctrl)
 			mockTx := mock_repositories.NewMockTransactionManager(ctrl)
+			mockQuizProducer := mock_repositories.NewMockQuizEventProducer(ctrl)
 			tc.prepareMock(mockAnswerRepo)
 
-			service := services.NewAnswerService(mockAnswerRepo, mockTx)
+			service := services.NewAnswerService(mockAnswerRepo, mockQuizRepo, mockSessionRepo, mockTx, mockQuizProducer)
 			ctx := context.Background()
 
 			_, err := service.UpdateAnswer(ctx, tc.answerID, tc.dto, tc.userID)
@@ -250,10 +271,13 @@ func TestAnswerService_DeleteAnswer(t *testing.T) {
 			defer ctrl.Finish()
 
 			mockAnswerRepo := mock_repositories.NewMockAnswerRepository(ctrl)
+			mockQuizRepo := mock_repositories.NewMockQuizRepository(ctrl)
+			mockSessionRepo := mock_repositories.NewMockSessionRepository(ctrl)
 			mockTx := mock_repositories.NewMockTransactionManager(ctrl)
+			mockQuizProducer := mock_repositories.NewMockQuizEventProducer(ctrl)
 			tc.prepareMock(mockAnswerRepo)
 
-			service := services.NewAnswerService(mockAnswerRepo, mockTx)
+			service := services.NewAnswerService(mockAnswerRepo, mockQuizRepo, mockSessionRepo, mockTx, mockQuizProducer)
 			ctx := context.Background()
 
 			err := service.DeleteAnswer(ctx, tc.answerID, tc.userID)
