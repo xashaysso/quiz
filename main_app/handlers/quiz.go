@@ -91,7 +91,8 @@ func (h *QuizHandler) StartQuiz(c *gin.Context) {
 	ctx := c.Request.Context()
 	quizID := c.Param("quiz_id")
 
-	userID := c.MustGet("userID").(int64)
+	userIDInt := c.MustGet("userID").(int)
+	userID := int64(userIDInt)
 
 	session, err := h.QuizService.StartQuiz(ctx, userID, quizID)
 	if err != nil {

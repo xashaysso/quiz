@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -12,9 +11,9 @@ import (
 	"time"
 
 	"quiz/db"
+	kafka_producers "quiz/db/repositories/kafka"
 	"quiz/db/repositories/pg"
 	"quiz/db/repositories/redis"
-	"quiz/entities/dto"
 	"quiz/handlers"
 	"quiz/middleware"
 	"quiz/pkg/kafka"
@@ -56,6 +55,13 @@ func main() {
 	globalPool := db.Serve()
 	defer globalPool.Close()
 
+	// kafka producer
+	brokers := []string{"127.0.0.1:9092"}
+	kafkaProducer := kafka.NewProducer(brokers, "quiz-results")
+	defer kafkaProducer.Close()
+
+	quizEventProducer := kafka_producers.NewQuizKafkaProducer(kafkaProducer)
+
 	// repositories
 	quizRepo := pg.NewQuizRepo(globalPool)
 	questionRepo := pg.NewQuestionRepo(globalPool)
@@ -73,7 +79,7 @@ func main() {
 	// services
 	quizService := services.NewQuizService(quizRepo, questionRepo, sessionRepo)
 	questionService := services.NewQuestionService(questionRepo, answerRepo, txManager)
-	answerService := services.NewAnswerService(answerRepo, txManager)
+	answerService := services.NewAnswerService(answerRepo, quizRepo, sessionRepo, txManager, quizEventProducer)
 
 	// handlers
 	quizH := handlers.NewQuizHandler(quizService)
@@ -127,30 +133,6 @@ func main() {
 		answer.GET("/:answer_id", answerH.GetAnswer)
 		answer.PATCH("/:answer_id", answerH.UpdateAnswer)
 		answer.DELETE("/:answer_id", answerH.DeleteAnswer)
-	}
-
-	// kafka producer
-	kafkaProducer := kafka.NewProducer([]string{"localhost:9092"}, "quiz-results")
-	defer kafkaProducer.Close()
-
-	event := dto.QuizPassedEvent{
-		QuizID:         10,
-		UserID:         54,
-		Score:          25,
-		TotalQuestions: 10,
-		PassedAt:       time.Now(),
-	}
-	eventBytes, err := json.Marshal(event)
-	if err != nil {
-		slog.Error("failed to marshal quiz event", slog.Any("err", err))
-		return
-	}
-
-	ctx, cancelTest := context.WithTimeout(context.Background(), 2*time.Second)
-	err = kafkaProducer.SendMessage(ctx, []byte("54"), eventBytes)
-	cancelTest()
-	if err != nil {
-		slog.Error("kafka test ping failed", slog.Any("err", err))
 	}
 
 	// server start

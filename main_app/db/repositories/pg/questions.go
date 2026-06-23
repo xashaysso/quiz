@@ -151,7 +151,7 @@ func (r *PgQuestionRepo) CheckIfQuestionOwner(ctx context.Context, questionID in
 }
 
 func (r *PgQuestionRepo) GetQuestionIDsByQuizID(ctx context.Context, quizID int64) ([]int64, error) {
-	rows, err := r.Pool.Query(ctx, `SELECT id FROM questions WHERE quiz_id = $1 ORDER BY id ASC`)
+	rows, err := r.Pool.Query(ctx, `SELECT id FROM questions WHERE quiz_id = $1 ORDER BY id ASC`, quizID)
 	if err != nil {
 		return nil, err
 	}

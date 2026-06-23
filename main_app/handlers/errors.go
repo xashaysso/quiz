@@ -27,6 +27,8 @@ func HandleError(c *gin.Context, err error) {
 		errors.Is(err, services.ErrInvalidAnswerText),
 		errors.Is(err, services.ErrNoFieldsToUpdate),
 		errors.Is(err, services.ErrInvalidCorrectID),
+		errors.Is(err, services.ErrQuestionAlreadyAnswered),
+		errors.Is(err, services.ErrQuestionDoesNotBelongToQuiz),
 		errors.Is(err, services.ErrNoRequiredFields):
 		slog.Warn("client bad request", logAttrs...)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

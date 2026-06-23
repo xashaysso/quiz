@@ -8,8 +8,6 @@ import (
 	entities "quiz/entities/db"
 	"quiz/entities/dto"
 	"strconv"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type QuestionService struct {
@@ -47,7 +45,7 @@ func (s *QuestionService) CreateQuestion(ctx context.Context, quizID string, bod
 	var createdQuestionID int
 	var answers []entities.Answer
 
-	err = s.TxManager.WithinTransaction(ctx, func(tx pgx.Tx) error {
+	err = s.TxManager.WithinTransaction(ctx, func(tx any) error {
 		id, err := s.QuestionRepo.CreateQuestion(ctx, tx, qID, body)
 		if err != nil {
 			if errors.Is(err, repositories.ErrRecordNotFound) {

@@ -5,8 +5,6 @@ import (
 	entities "quiz/entities/db"
 	"quiz/entities/dto"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type QuizRepository interface {
@@ -15,6 +13,7 @@ type QuizRepository interface {
 	DeleteQuiz(ctx context.Context, quizID int) error
 	CreateQuiz(ctx context.Context, quiz_name string, quiz_description string, userID int) (entities.Quiz, error)
 	UpdateQuiz(ctx context.Context, quizID int, name *string, description *string) (entities.Quiz, error)
+	SaveAttempt(ctx context.Context, userID int64, quizID int64, score int) error
 }
 
 type QuestionRepository interface {
@@ -55,5 +54,9 @@ type SessionRepository interface {
 }
 
 type TransactionManager interface {
-	WithinTransaction(ctx context.Context, fn func(tx pgx.Tx) error) error
+	WithinTransaction(ctx context.Context, fn func(tx any) error) error
+}
+
+type QuizEventProducer interface {
+	PublishQuizPassed(ctx context.Context, userID int64, quizID int64, score int) error
 }

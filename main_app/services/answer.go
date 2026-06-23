@@ -9,20 +9,23 @@ import (
 	"quiz/entities/dto"
 	"strconv"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type AnswerService struct {
-	AnswerRepo  repositories.AnswerRepository
-	SessionRepo repositories.SessionRepository
-	TxManager   repositories.TransactionManager
+	AnswerRepo        repositories.AnswerRepository
+	QuizRepo          repositories.QuizRepository
+	SessionRepo       repositories.SessionRepository
+	TxManager         repositories.TransactionManager
+	QuizEventProducer repositories.QuizEventProducer
 }
 
-func NewAnswerService(aRepo repositories.AnswerRepository, txm repositories.TransactionManager) AnswerServiceInterface {
+func NewAnswerService(aRepo repositories.AnswerRepository, qRepo repositories.QuizRepository, sRepo repositories.SessionRepository, txm repositories.TransactionManager, qeProd repositories.QuizEventProducer) AnswerServiceInterface {
 	return &AnswerService{
-		AnswerRepo: aRepo,
-		TxManager:  txm,
+		AnswerRepo:        aRepo,
+		QuizRepo:          qRepo,
+		SessionRepo:       sRepo,
+		TxManager:         txm,
+		QuizEventProducer: qeProd,
 	}
 }
 
@@ -68,9 +71,15 @@ func (s *AnswerService) CheckAnswer(ctx context.Context, sessionID string, quest
 	session.AnsweredQuestions = append(session.AnsweredQuestions, qID)
 
 	if len(session.Questions) == len(session.AnsweredQuestions) {
-		// TODO:
-		// 1. save attempt to quiz_db here
-		// 2. push session to kafka
+		err = s.QuizRepo.SaveAttempt(ctx, session.UserID, session.QuizID, session.CurrentScore)
+		if err != nil {
+			return false, err
+		}
+
+		err = s.QuizEventProducer.PublishQuizPassed(ctx, session.UserID, session.QuizID, session.CurrentScore)
+		if err != nil {
+			return false, err
+		}
 
 		err = s.SessionRepo.DeleteQuizSession(ctx, sessionID)
 		if err != nil {
@@ -123,7 +132,7 @@ func (s *AnswerService) CreateAnswer(ctx context.Context, questionID string, dat
 
 	var answer dto.AnswerPublicResponse
 
-	err = s.TxManager.WithinTransaction(ctx, func(tx pgx.Tx) error {
+	err = s.TxManager.WithinTransaction(ctx, func(tx any) error {
 		ansID, err := s.AnswerRepo.CreateAnswer(ctx, tx, qID, data.Text, data.IsCorrect)
 		if err != nil {
 			return err

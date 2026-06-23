@@ -3,7 +3,6 @@ package pg
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -15,7 +14,7 @@ func NewPgTxManager(pool *pgxpool.Pool) *PgTxManager {
 	return &PgTxManager{Pool: pool}
 }
 
-func (m *PgTxManager) WithinTransaction(ctx context.Context, fn func(tx pgx.Tx) error) error {
+func (m *PgTxManager) WithinTransaction(ctx context.Context, fn func(tx any) error) error {
 	tx, err := m.Pool.Begin(ctx)
 	if err != nil {
 		return err
