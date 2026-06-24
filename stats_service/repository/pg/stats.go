@@ -25,3 +25,15 @@ func (r *PgStatsRepo) SaveUserStats(ctx context.Context, userID int64, score int
 	_, err := r.Pool.Exec(ctx, query, userID, score)
 	return err
 }
+
+func (r *PgStatsRepo) SaveQuizGlobalStats(ctx context.Context, quizID int64, score int) error {
+	query := `INSERT INTO quiz_global_stats (quiz_id, total_attempts, accumulated_score, updated_at) VALUES ($1, 1, $2, NOW())
+			ON CONFLICT (quiz_id) DO UPDATE
+			SET
+				total_attempts = quiz_global_stats.total_attempts + 1,
+				accumulated_score = quiz_global_stats.accumulated_score + EXCLUDED.accumulated_score,
+				updated_at = NOW()
+			`
+	_, err := r.Pool.Exec(ctx, query, quizID, score)
+	return err
+}
