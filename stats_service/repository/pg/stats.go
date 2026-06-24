@@ -2,7 +2,11 @@ package pg
 
 import (
 	"context"
+	"errors"
+	"stats/entities"
+	"stats/repository"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -36,4 +40,49 @@ func (r *PgStatsRepo) SaveQuizGlobalStats(ctx context.Context, quizID int64, sco
 			`
 	_, err := r.Pool.Exec(ctx, query, quizID, score)
 	return err
+}
+
+func (r *PgStatsRepo) GetUserStats(ctx context.Context, userID int64) (entities.QuizUserStats, error) {
+	var quizUserStats entities.QuizUserStats
+	err := r.Pool.QueryRow(ctx, `SELECT user_id, total_quizzes_passed, total_score, updated_at FROM user_stats WHERE user_id = $1`, userID).Scan(&quizUserStats.UserID, &quizUserStats.TotalQuizzesPassed, &quizUserStats.TotalScore, &quizUserStats.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entities.QuizUserStats{}, repository.ErrRecordNotFound
+		}
+		return entities.QuizUserStats{}, err
+	}
+
+	return quizUserStats, nil
+}
+
+func (r *PgStatsRepo) GetQuizGlobalStats(ctx context.Context, quizID int64) (entities.QuizGlobalStats, error) {
+	var quizGlobalStats entities.QuizGlobalStats
+	err := r.Pool.QueryRow(ctx, `SELECT quiz_id, total_attempts, accumulated_score, updated_at FROM quiz_global_stats WHERE quiz_id = $1`, quizID).Scan(&quizGlobalStats.QuizID, &quizGlobalStats.TotalAtts, &quizGlobalStats.AccScore, &quizGlobalStats.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entities.QuizGlobalStats{}, repository.ErrRecordNotFound
+		}
+		return entities.QuizGlobalStats{}, err
+	}
+
+	return quizGlobalStats, nil
+}
+
+func (r *PgStatsRepo) GetQuizAnalytics(ctx context.Context, quizID int64) (entities.QuizAnalytics, error) {
+	var quizAnalytics entities.QuizAnalytics
+	query := `SELECT quiz_id, total_attempts, accumulated_score, updated_at,
+								CASE
+									WHEN total_attempts > 0 THEN ROUND(accumulated_score::NUMERIC / total_attempts, 2)
+									ELSE 0
+								END as average_score
+				FROM quiz_global_stats WHERE quiz_id = $1`
+	err := r.Pool.QueryRow(ctx, query, quizID).Scan(&quizAnalytics.QuizID, &quizAnalytics.TotalAtts, &quizAnalytics.AccScore, &quizAnalytics.UpdatedAt, &quizAnalytics.AvgScore)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entities.QuizAnalytics{}, repository.ErrRecordNotFound
+		}
+		return entities.QuizAnalytics{}, err
+	}
+
+	return quizAnalytics, nil
 }
