@@ -9,9 +9,11 @@ import (
 	"os/signal"
 	"stats/consumer"
 	"stats/handlers"
+	"stats/pkg/kafka"
 	"stats/repository"
 	"stats/repository/pg"
 	"stats/service"
+	"strings"
 	"syscall"
 	"time"
 
@@ -72,13 +74,34 @@ func main() {
 	}()
 	slog.Info("server started succesfully", slog.String("port", PORT))
 
-	quizConsumer := consumer.NewQuizPassedConsumer([]string{"127.0.0.1:9092"}, "quiz-results", "stats-processors", statsService)
+	kafkaBrokers := os.Getenv("KAFKA_BROKERS")
+	if kafkaBrokers == "" {
+		kafkaBrokers = "127.0.0.1:9092"
+	}
+	brokersSlice := strings.Split(kafkaBrokers, ",")
+
+	kafkaTopic := os.Getenv("KAFKA_TOPIC")
+	if kafkaTopic == "" {
+		kafkaTopic = "quiz-results"
+	}
+
+	kafkaGroupID := os.Getenv("KAFKA_GROUP_ID")
+	if kafkaGroupID == "" {
+		kafkaGroupID = "stats-processors"
+	}
+
+	quizConsumer := consumer.NewQuizPassedConsumer(brokersSlice, kafkaTopic, kafkaGroupID, statsService)
 
 	defer func() {
 		if err := quizConsumer.Close(); err != nil {
 			slog.Error("failed to close consumer", slog.Any("err", err))
 		}
 	}()
+
+	if !kafka.WaitForKafka(brokersSlice, 30*time.Second) {
+		slog.Error("kafka is not available after 30 seconds, exiting")
+		os.Exit(1)
+	}
 
 	go quizConsumer.Start(ctx)
 

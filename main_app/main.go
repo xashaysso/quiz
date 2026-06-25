@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -56,8 +57,18 @@ func main() {
 	defer globalPool.Close()
 
 	// kafka producer
-	brokers := []string{"127.0.0.1:9092"}
-	kafkaProducer := kafka.NewProducer(brokers, "quiz-results")
+	kafkaBrokers := os.Getenv("KAFKA_BROKERS")
+	if kafkaBrokers == "" {
+		kafkaBrokers = "127:0.0.1:9092"
+	}
+	brokers := strings.Split(kafkaBrokers, ",")
+
+	kafkaTopic := os.Getenv("KAFKA_TOPIC")
+	if kafkaTopic == "" {
+		kafkaTopic = "quiz-results"
+	}
+
+	kafkaProducer := kafka.NewProducer(brokers, kafkaTopic)
 	defer kafkaProducer.Close()
 
 	quizEventProducer := kafka_producers.NewQuizKafkaProducer(kafkaProducer)

@@ -10,6 +10,9 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - quiz_network
+  
   stats_db:
     image: postgres:15-alpine
     container_name: stats_pg
@@ -21,11 +24,17 @@ services:
       - "5434:5432"
     volumes:
       - stats_data:/var/lib/postgresql/data
+    networks:
+      - quiz_network
+  
   redis:
     image: redis:latest
     container_name: quiz_redis
     ports:
       - "6379:6379"
+    networks:
+      - quiz_network
+
   kafka:
     image: apache/kafka:latest
     container_name: quiz_kafka
@@ -34,15 +43,64 @@ services:
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: 'broker,controller'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@localhost:9093'
-      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
-      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://localhost:9092'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+      KAFKA_LISTENERS: 'INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'INTERNAL://kafka:29092,EXTERNAL://localhost:9092'
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    networks:
+      - quiz_network
+
+  main_app:
+    build:
+      context: ./main_app
+      dockerfile: Dockerfile
+    container_name: quiz_main_app
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=dev
+      - DB_URL=postgres://user:password@db:5432/quiz_db?sslmode=disable
+      - PORT=:8080
+      - REDIS_ADDR=redis:6379
+      - KAFKA_BROKERS=kafka:29092
+      - KAFKA_TOPIC=quiz-results
+    depends_on:
+      - db
+      - redis
+      - kafka
+    networks:
+      - quiz_network
+
+  stats_service:
+    build:
+      context: ./stats_service
+      dockerfile: Dockerfile
+    container_name: quiz_stats_service
+    ports:
+      - "8081:8081"
+    environment:
+      - APP_ENV=dev
+      - DB_URL=postgres://stats_user:stats_password@stats_db:5432/stats_db?sslmode=disable
+      - PORT=:8081
+      - KAFKA_BROKERS=kafka:29092
+      - KAFKA_TOPIC=quiz-results
+      - KAFKA_GROUP_ID=stats-processors
+    depends_on:
+      - stats_db
+      - kafka
+    networks:
+      - quiz_network
+
 volumes:
   postgres_data:
   stats_data:
+
+networks:
+  quiz_network:
+    driver: bridge

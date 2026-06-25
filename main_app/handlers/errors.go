@@ -34,7 +34,8 @@ func HandleError(c *gin.Context, err error) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 
 	// 401 Unauthorized
-	case errors.Is(err, services.ErrWrongCredentials):
+	case errors.Is(err, services.ErrWrongCredentials),
+		errors.Is(err, services.ErrSessionExpired):
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 
 	// 403 Not Found
