@@ -42,12 +42,39 @@ func (s *StatsService) GetUserStats(ctx context.Context, userID int64) (entities
 	return userStats, nil
 }
 
-func (s *StatsService) GetQuizGlobalStats(ctx context.Context, quizID int64) (entities.QuizGlobalStats, error) {
-	quizStats, err := s.StatsRepo.GetQuizGlobalStats(ctx, quizID)
+func (s *StatsService) GetQuizStats(ctx context.Context, quizID int64) (entities.QuizGlobalStats, error) {
+	quizStats, err := s.StatsRepo.GetQuizStats(ctx, quizID)
 	if err != nil {
 		slog.Error("failed to get quiz stats", slog.Any("err", err))
 		return entities.QuizGlobalStats{}, err
 	}
 
 	return quizStats, nil
+}
+
+func (s *StatsService) GetUserLeaderboard(ctx context.Context) ([]entities.UserStats, error) {
+	leaderboard, err := s.StatsRepo.GetUserLeaderboard(ctx)
+	if err != nil {
+		slog.Error("failed to get user leaderboard", slog.Any("err", err))
+		return nil, err
+	}
+	return leaderboard, nil
+}
+
+func (s *StatsService) GetQuizAnalytics(ctx context.Context, quizID int64) (entities.QuizAnalytics, error) {
+	qAnalytics, err := s.StatsRepo.GetQuizAnalytics(ctx, quizID)
+	if err != nil {
+		slog.Error("failed to get quiz analytics", slog.Any("err", err))
+		return entities.QuizAnalytics{}, err
+	}
+	return qAnalytics, nil
+}
+
+func (s *StatsService) GetUserAnalytics(ctx context.Context, userID int64) (entities.UserAnalytics, error) {
+	uAnalytics, err := s.StatsRepo.GetUserAnalytics(ctx, userID)
+	if err != nil {
+		slog.Error("failed to get user analytics", slog.Any("err", err))
+		return entities.UserAnalytics{}, err
+	}
+	return uAnalytics, nil
 }

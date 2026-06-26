@@ -55,8 +55,17 @@ func main() {
 
 	stats := router.Group("/stats")
 	{
-		stats.GET("/users/:user_id", statsHandler.GetUserStats)
-		stats.GET("/quizzes/:quiz_id", statsHandler.GetQuizGlobalStats)
+		users := stats.Group("/users")
+		{
+			users.GET("/:user_id", statsHandler.GetUserStats)
+			users.GET("/:user_id/analytics", statsHandler.GetUserAnalytics)
+		}
+		quizzes := stats.Group("/quizzes")
+		{
+			quizzes.GET("/:quiz_id", statsHandler.GetQuizStats)
+			quizzes.GET("/:quiz_id/analytics", statsHandler.GetQuizAnalytics)
+		}
+		stats.GET("/leaderboard", statsHandler.GetUserLeaderboard)
 	}
 
 	PORT := os.Getenv("PORT")

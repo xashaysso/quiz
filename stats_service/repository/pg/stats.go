@@ -55,7 +55,7 @@ func (r *PgStatsRepo) GetUserStats(ctx context.Context, userID int64) (entities.
 	return quizUserStats, nil
 }
 
-func (r *PgStatsRepo) GetQuizGlobalStats(ctx context.Context, quizID int64) (entities.QuizGlobalStats, error) {
+func (r *PgStatsRepo) GetQuizStats(ctx context.Context, quizID int64) (entities.QuizGlobalStats, error) {
 	var quizGlobalStats entities.QuizGlobalStats
 	err := r.Pool.QueryRow(ctx, `SELECT quiz_id, total_attempts, accumulated_score, updated_at FROM quiz_global_stats WHERE quiz_id = $1`, quizID).Scan(&quizGlobalStats.QuizID, &quizGlobalStats.TotalAtts, &quizGlobalStats.AccScore, &quizGlobalStats.UpdatedAt)
 	if err != nil {
@@ -85,4 +85,44 @@ func (r *PgStatsRepo) GetQuizAnalytics(ctx context.Context, quizID int64) (entit
 	}
 
 	return quizAnalytics, nil
+}
+
+func (r *PgStatsRepo) GetUserAnalytics(ctx context.Context, userID int64) (entities.UserAnalytics, error) {
+	var userAnalytics entities.UserAnalytics
+	query := `SELECT user_id, total_quizzes_passed, total_score, updated_at,
+								CASE
+									WHEN total_quizzes_passed > 0 THEN ROUND(total_score::NUMERIC / total_quizzes_passed, 2)
+									ELSE 0
+								END as average_score
+				FROM user_stats WHERE user_id = $1`
+	err := r.Pool.QueryRow(ctx, query, userID).Scan(&userAnalytics.UserID, &userAnalytics.TotalQuizzesPassed, &userAnalytics.TotalScore, &userAnalytics.UpdatedAt, &userAnalytics.AvgScore)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entities.UserAnalytics{}, repository.ErrRecordNotFound
+		}
+		return entities.UserAnalytics{}, err
+	}
+
+	return userAnalytics, nil
+}
+
+func (r *PgStatsRepo) GetUserLeaderboard(ctx context.Context) ([]entities.UserStats, error) {
+	rows, err := r.Pool.Query(ctx, `SELECT user_id, total_score, total_quizzes_passed FROM user_stats ORDER BY total_score DESC LIMIT 10`)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, repository.ErrRecordNotFound
+		}
+		return nil, err
+	}
+
+	var leaderboard []entities.UserStats
+	for rows.Next() {
+		var userStats entities.UserStats
+		err := rows.Scan(&userStats.UserID, &userStats.TotalScore, &userStats.TotalQuizzesPassed)
+		if err != nil {
+			return nil, err
+		}
+		leaderboard = append(leaderboard, userStats)
+	}
+	return leaderboard, nil
 }

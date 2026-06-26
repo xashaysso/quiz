@@ -38,7 +38,7 @@ func (h *StatsHandler) GetUserStats(c *gin.Context) {
 	c.JSON(http.StatusOK, userStats)
 }
 
-func (h *StatsHandler) GetQuizGlobalStats(c *gin.Context) {
+func (h *StatsHandler) GetQuizStats(c *gin.Context) {
 	ctx := c.Request.Context()
 	quizIDStr := c.Param("quiz_id")
 	quizID, err := strconv.ParseInt(quizIDStr, 10, 64)
@@ -49,11 +49,62 @@ func (h *StatsHandler) GetQuizGlobalStats(c *gin.Context) {
 		return
 	}
 
-	quizStats, err := h.statsService.GetQuizGlobalStats(ctx, quizID)
+	quizStats, err := h.statsService.GetQuizStats(ctx, quizID)
 	if err != nil {
 		HandleError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, quizStats)
+}
+
+func (h *StatsHandler) GetUserLeaderboard(c *gin.Context) {
+	ctx := c.Request.Context()
+	leaderboard, err := h.statsService.GetUserLeaderboard(ctx)
+	if err != nil {
+		HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, leaderboard)
+}
+
+func (h *StatsHandler) GetQuizAnalytics(c *gin.Context) {
+	ctx := c.Request.Context()
+	quizIDStr := c.Param("quiz_id")
+	quizID, err := strconv.ParseInt(quizIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid quiz id format",
+		})
+		return
+	}
+
+	analytics, err := h.statsService.GetQuizAnalytics(ctx, quizID)
+	if err != nil {
+		HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, analytics)
+}
+
+func (h *StatsHandler) GetUserAnalytics(c *gin.Context) {
+	ctx := c.Request.Context()
+	userIDStr := c.Param("user_id")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid user id format",
+		})
+		return
+	}
+
+	analytics, err := h.statsService.GetUserAnalytics(ctx, userID)
+	if err != nil {
+		HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, analytics)
 }
