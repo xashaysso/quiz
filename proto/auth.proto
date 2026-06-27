@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "./authv1";
+
+service AuthService {
+    rpc Register (RegisterRequest) returns (RegisterResponse);
+    rpc Login (LoginRequest) returns (LoginResponse);
+    rpc CheckSession (CheckSessionRequest) returns (CheckSessionResponse);
+    rpc DeleteSession (DeleteSessionRequest) returns (DeleteSessionResponse);
+}
+
+message RegisterRequest {
+    string username = 1;
+    string password = 2;
+}
+
+message RegisterResponse {
+    string token = 1;
+    int64 user_id = 2;
+}
+
+message LoginRequest {
+    string username = 1;
+    string password = 2;
+}
+
+message LoginResponse {
+    string token = 1;
+}
+
+message CheckSessionRequest {
+    string session_id = 1;
+}
+
+message CheckSessionResponse {
+    int64 user_id = 1;
+}
+
+message DeleteSessionRequest {
+    string session_id = 1;
+}
+
+message DeleteSessionResponse {
+    bool success = 1;
+}
+

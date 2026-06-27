@@ -31,9 +31,3 @@ type AnswerServiceInterface interface {
 	DeleteAnswer(ctx context.Context, answerID string, userID int) error
 	UpdateAnswer(ctx context.Context, answerID string, data dto.UpdateAnswerDTO, userID int) (dto.AnswerPublicResponse, error)
 }
-
-type AuthServiceInterface interface {
-	Register(ctx context.Context, username, password string) (entities.User, string, error)
-	Login(ctx context.Context, username, password string) (string, error)
-	Logout(ctx context.Context, token string) error
-}
