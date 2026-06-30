@@ -3,18 +3,19 @@ package handlers
 import (
 	"net/http"
 	"quiz/entities/dto"
-	"quiz/services"
+	"quiz/pkg/authv1"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
-	AuthService services.AuthServiceInterface
+	authClient authv1.AuthServiceClient
 }
 
-func NewAuthHandler(service services.AuthServiceInterface) *AuthHandler {
+func NewAuthHandler(client authv1.AuthServiceClient) *AuthHandler {
 	return &AuthHandler{
-		AuthService: service,
+		authClient: client,
 	}
 }
 
@@ -29,22 +30,25 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.AuthService.Register(ctx, body.Username, body.Password)
+	res, err := h.authClient.Register(ctx, &authv1.RegisterRequest{
+		Username: body.Username,
+		Password: body.Password,
+	})
 	if err != nil {
-		HandleError(c, err)
+		HandleGrpcError(c, err)
 		return
 	}
 
-	h.setAuthCookie(c, token)
+	h.setAuthCookie(c, res.GetToken())
 
 	newUser := dto.RegisterResponse{
-		ID:        user.ID,
-		Username:  user.Username,
-		CreatedAt: user.CreatedAt,
+		ID:        int(res.GetUserId()),
+		Username:  body.Username,
+		CreatedAt: time.Now(),
 	}
 	c.JSON(http.StatusCreated, gin.H{
 		"user":  newUser,
-		"token": token,
+		"token": res.GetToken(),
 	})
 }
 
@@ -59,16 +63,19 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := h.AuthService.Login(ctx, body.Username, body.Password)
+	res, err := h.authClient.Login(ctx, &authv1.LoginRequest{
+		Username: body.Username,
+		Password: body.Password,
+	})
 	if err != nil {
-		HandleError(c, err)
+		HandleGrpcError(c, err)
 		return
 	}
 
-	h.setAuthCookie(c, token)
+	h.setAuthCookie(c, res.GetToken())
 
 	c.JSON(http.StatusOK, gin.H{
-		"token":   token,
+		"token":   res.GetToken(),
 		"message": "successfully logged in",
 	})
 }
@@ -82,11 +89,14 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		})
 		return
 	}
-	err = h.AuthService.Logout(ctx, token)
+	_, err = h.authClient.DeleteSession(ctx, &authv1.DeleteSessionRequest{
+		SessionId: token,
+	})
 	if err != nil {
-		HandleError(c, err)
+		HandleGrpcError(c, err)
 		return
 	}
+
 	c.SetCookie("token", token, -1, "/", "", false, true)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "logged out",

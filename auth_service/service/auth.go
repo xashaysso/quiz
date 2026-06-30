@@ -1,11 +1,11 @@
-package services
+package service
 
 import (
+	entities "auth/entities"
+	"auth/repository"
 	"context"
 	"errors"
 	"log/slog"
-	"quiz/db/repositories"
-	entities "quiz/entities/db"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,11 +13,11 @@ import (
 )
 
 type AuthService struct {
-	UserRepo    repositories.UserRepository
-	SessionRepo repositories.SessionRepository
+	UserRepo    repository.UserRepository
+	SessionRepo repository.SessionRepository
 }
 
-func NewAuthService(uRepo repositories.UserRepository, sRepo repositories.SessionRepository) AuthServiceInterface {
+func NewAuthService(uRepo repository.UserRepository, sRepo repository.SessionRepository) AuthServiceInterface {
 	return &AuthService{
 		UserRepo:    uRepo,
 		SessionRepo: sRepo,
@@ -39,7 +39,7 @@ func (s *AuthService) Register(ctx context.Context, username, password string) (
 
 	user, err := s.UserRepo.CreateUser(ctx, username, string(hash))
 	if err != nil {
-		if errors.Is(err, repositories.ErrUserAlreadyExists) {
+		if errors.Is(err, repository.ErrUserAlreadyExists) {
 			return entities.User{}, "", ErrUserAlreadyExists
 		}
 		return entities.User{}, "", err
@@ -90,4 +90,13 @@ func (s *AuthService) Logout(ctx context.Context, token string) error {
 	slog.Info("user logged out successfully")
 
 	return nil
+}
+
+func (s *AuthService) CheckSession(ctx context.Context, token string) (int, error) {
+	userID, err := s.SessionRepo.Get(ctx, token)
+	if err != nil {
+		slog.Warn("session expired", slog.Any("err", err))
+		return -1, repository.ErrSessionExpired
+	}
+	return userID, nil
 }

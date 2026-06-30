@@ -1,10 +1,10 @@
 package pg
 
 import (
+	entities "auth/entities"
+	"auth/repository"
 	"context"
 	"errors"
-	"quiz/db/repositories"
-	entities "quiz/entities/db"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -28,7 +28,7 @@ func (r *PgUserRepo) CreateUser(ctx context.Context, username string, password_h
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == "23505" {
-				return entities.User{}, repositories.ErrUserAlreadyExists
+				return entities.User{}, repository.ErrUserAlreadyExists
 			}
 		}
 		return entities.User{}, err
@@ -42,7 +42,7 @@ func (r *PgUserRepo) GetByUsername(ctx context.Context, username string) (entiti
 	err := r.Pool.QueryRow(ctx, "SELECT id, username, password_hash FROM users WHERE username = $1", username).Scan(&User.ID, &User.Username, &User.PasswordHash)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return entities.User{}, repositories.ErrRecordNotFound
+			return entities.User{}, repository.ErrRecordNotFound
 		}
 		return entities.User{}, err
 	}

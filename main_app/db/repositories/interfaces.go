@@ -39,15 +39,7 @@ type AnswerRepository interface {
 	GetAnswersByQuestionIDs(ctx context.Context, questionIDs []int) ([]entities.Answer, error)
 }
 
-type UserRepository interface {
-	CreateUser(ctx context.Context, username string, password_hash string) (entities.User, error)
-	GetByUsername(ctx context.Context, username string) (entities.User, error)
-}
-
 type SessionRepository interface {
-	Get(ctx context.Context, token string) (int, error)
-	Set(ctx context.Context, token string, userID int, ttl time.Duration) error
-	Delete(ctx context.Context, token string) error
 	SaveQuizSession(ctx context.Context, session entities.QuizSession, ttl time.Duration) error
 	GetQuizSession(ctx context.Context, sessionID string) (*entities.QuizSession, error)
 	DeleteQuizSession(ctx context.Context, sessionID string) error
