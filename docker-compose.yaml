@@ -26,6 +26,20 @@ services:
       - stats_data:/var/lib/postgresql/data
     networks:
       - quiz_network
+
+  auth_db:
+    image: postgres:15-alpine
+    container_name: auth_pg
+    environment:
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+      POSTGRES_DB: auth_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - auth_data:/var/lib/postgresql/data
+    networks:
+      - quiz_network
   
   redis:
     image: redis:latest
@@ -70,6 +84,7 @@ services:
       - REDIS_ADDR=redis:6379
       - KAFKA_BROKERS=kafka:29092
       - KAFKA_TOPIC=quiz-results
+      - AUTH_SERVICE_ADDR=auth_service:50051
     depends_on:
       - db
       - redis
@@ -97,9 +112,27 @@ services:
     networks:
       - quiz_network
 
+  auth_service:
+    build:
+      context: ./auth_service
+      dockerfile: Dockerfile
+    container_name: quiz_auth_service
+    ports:
+      - "50051:50051"
+    environment:
+      - APP_ENV=local
+      - PORT=50051
+      - DB_URL=postgres://auth_user:auth_password@auth_db:5432/auth_db?sslmode=disable
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - auth_db
+      - redis
+    networks:
+      - quiz_network
 volumes:
   postgres_data:
   stats_data:
+  auth_data:
 
 networks:
   quiz_network:
