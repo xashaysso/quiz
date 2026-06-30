@@ -7,6 +7,8 @@ import (
 	"quiz/services"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func HandleError(c *gin.Context, err error) {
@@ -59,5 +61,34 @@ func HandleError(c *gin.Context, err error) {
 	default:
 		slog.Warn("internal server error detected", logAttrs...)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
+	}
+}
+
+func HandleGrpcError(c *gin.Context, err error) {
+	st, ok := status.FromError(err)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	switch st.Code() {
+	case codes.InvalidArgument:
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": st.Message(),
+		})
+	case codes.Unauthenticated:
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": st.Message(),
+		})
+	case codes.AlreadyExists:
+		c.JSON(http.StatusConflict, gin.H{
+			"error": st.Message(),
+		})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "internal server error",
+		})
 	}
 }

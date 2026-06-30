@@ -17,11 +17,15 @@ import (
 	"quiz/db/repositories/redis"
 	"quiz/handlers"
 	"quiz/middleware"
+	"quiz/pkg/authv1"
 	"quiz/pkg/kafka"
 	"quiz/services"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/patrickmn/go-cache"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -77,15 +81,25 @@ func main() {
 	quizRepo := pg.NewQuizRepo(globalPool)
 	questionRepo := pg.NewQuestionRepo(globalPool)
 	answerRepo := pg.NewAnswerRepo(globalPool)
-	userRepo := pg.NewUserRepo(globalPool)
 	txManager := pg.NewPgTxManager(globalPool)
+
+	sessionCache := cache.New(1*time.Minute, 5*time.Minute)
+
+	authServiceAddr := os.Getenv("AUTH_SERVICE_ADDR")
+
+	conn, err := grpc.NewClient(authServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		slog.Error("cannot connect to auth service", slog.Any("err", err))
+		os.Exit(1)
+	}
+	defer conn.Close()
+
+	authClient := authv1.NewAuthServiceClient(conn)
 
 	// redis init
 	rdb := db.NewRedisClient(REDIS_ADDR)
 
 	sessionRepo := redis.NewSessionRepository(rdb)
-
-	authService := services.NewAuthService(userRepo, sessionRepo)
 
 	// services
 	quizService := services.NewQuizService(quizRepo, questionRepo, sessionRepo)
@@ -97,7 +111,9 @@ func main() {
 	questionH := handlers.NewQuestionHandler(questionService)
 	answerH := handlers.NewAnswerHandler(answerService)
 
-	authH := handlers.NewAuthHandler(authService)
+	authH := handlers.NewAuthHandler(authClient)
+
+	authMiddleware := middleware.AuthMiddleware(authClient, sessionCache)
 	// routes
 	auth := router.Group("/auth")
 	{
@@ -108,7 +124,7 @@ func main() {
 	}
 
 	quiz := router.Group("/quizzes")
-	quiz.Use(middleware.AuthMiddleware(sessionRepo))
+	quiz.Use(authMiddleware)
 	{
 		// quiz handlers
 		quiz.GET("/", quizH.ListQuizzes)
@@ -123,7 +139,7 @@ func main() {
 	}
 
 	question := router.Group("/questions")
-	question.Use(middleware.AuthMiddleware(sessionRepo))
+	question.Use(authMiddleware)
 	{
 		// question handlers
 		question.GET("/:question_id", questionH.GetQuestion)
@@ -138,7 +154,7 @@ func main() {
 	}
 
 	answer := router.Group("/answers")
-	answer.Use(middleware.AuthMiddleware(sessionRepo))
+	answer.Use(authMiddleware)
 	{
 		// answer handlers
 		answer.GET("/:answer_id", answerH.GetAnswer)
