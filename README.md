@@ -16,7 +16,7 @@ Project consists of 3 main microservices:
 
 ### Clone
 ```bash
-git clone [https://github.com/xashaysso/quiz.git](https://github.com/xashaysso/quiz.git)
+git clone https://github.com/xashaysso/quiz.git
 cd quiz
 ```
 
